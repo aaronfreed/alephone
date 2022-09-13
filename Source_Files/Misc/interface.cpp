@@ -23,7 +23,7 @@
 
 	Friday, July 8, 1994 2:32:44 PM (alain)
 		All old code in here is obsolete. This now has interface for the top-level
-		interface (Begin Game, etc…)
+		interface (Begin Game, etc‚Ä¶)
 	Saturday, September 10, 1994 12:45:48 AM  (alain)
 		the interface gutted again. just the stuff that handles the menu though, the rest stayed
 		the same.
@@ -148,6 +148,7 @@ extern TP2PerfGlobals perf_globals;
 #include "QuickSave.h"
 #include "Plugins.h"
 #include "Statistics.h"
+#include "shell_options.h"
 
 #ifdef HAVE_SMPEG
 #include <smpeg/smpeg.h>
@@ -171,10 +172,12 @@ enum recording_version {
 	RECORDING_VERSION_ALEPH_ONE_PRE_PIN = 6,
 	RECORDING_VERSION_ALEPH_ONE_1_0 = 7,
 	RECORDING_VERSION_ALEPH_ONE_1_1 = 8,
-	RECORDING_VERSION_ALEPH_ONE_1_2 = 9
+	RECORDING_VERSION_ALEPH_ONE_1_2 = 9,
+	RECORDING_VERSION_ALEPH_ONE_1_3 = 10,
+	RECORDING_VERSION_ALEPH_ONE_1_4 = 11
 };
-const short default_recording_version = RECORDING_VERSION_ALEPH_ONE_1_2;
-const short max_handled_recording= RECORDING_VERSION_ALEPH_ONE_1_2;
+const short default_recording_version = RECORDING_VERSION_ALEPH_ONE_1_4;
+const short max_handled_recording= RECORDING_VERSION_ALEPH_ONE_1_4;
 
 #include "screen_definitions.h"
 #include "interface_menus.h"
@@ -304,11 +307,10 @@ static struct color_table *current_picture_clut= NULL;
 /* -------------- externs */
 extern short interface_bit_depth;
 extern short bit_depth;
-extern bool insecure_lua;
 extern bool shapes_file_is_m1();
 
 /* ----------- prototypes/PREPROCESS_MAP_MAC.C */
-extern bool load_game_from_file(FileSpecifier& File, bool run_scripts, bool *was_map_found);
+extern bool load_game_from_file(FileSpecifier& File, bool run_scripts);
 extern bool choose_saved_game_to_load(FileSpecifier& File);
 
 /* ---------------------- prototypes */
@@ -371,11 +373,21 @@ void initialize_game_state(
 
 	toggle_menus(false);
 
-	if(insecure_lua) {
+	if(shell_options.insecure_lua) {
 	  alert_user(expand_app_variables("Insecure Lua has been manually enabled. Malicious Lua scripts can use Insecure Lua to take over your computer. Unless you specifically trust every single Lua script that will be running, you should quit $appName$ IMMEDIATELY.").c_str());
 	}
 
-	display_introduction();
+	if (!shell_options.editor)
+	{
+		if (shell_options.skip_intro)
+		{
+			display_main_menu();
+		}
+		else
+		{
+			display_introduction();
+		}
+	}
 }
 
 void force_game_state_change(
@@ -788,12 +800,23 @@ bool join_networked_resume_game()
                         free(theSavedGameFlatData);
                 }
                 
+				bool found_map = false;
                 if(success)
                 {
-                        success = process_map_wad(theWad, true /* resuming */, theWadHeader.data_version);
-                        free_wad(theWad); /* Note that the flat data points into the wad. */
-                        // ZZZ: maybe this is what the Bungie comment meant, but apparently
-                        // free_wad() somehow (voodoo) frees theSavedGameFlatData as well.
+					ResetLevelScript();
+					uint32 theParentChecksum = theWadHeader.parent_checksum;
+					found_map = use_map_file(theParentChecksum);
+
+					if (found_map) {
+						dynamic_data dynamic_data_wad;
+						get_dynamic_data_from_wad(theWad, &dynamic_data_wad);
+						RunLevelScript(dynamic_data_wad.current_level_number);
+					}
+
+                    success = process_map_wad(theWad, true /* resuming */, theWadHeader.data_version);
+                    free_wad(theWad); /* Note that the flat data points into the wad. */
+                    // ZZZ: maybe this is what the Bungie comment meant, but apparently
+                    // free_wad() somehow (voodoo) frees theSavedGameFlatData as well.
                 }
                 
                 if(success)
@@ -806,20 +829,18 @@ bool join_networked_resume_game()
                         // try to locate the Map file for the saved-game, so that (1) we have a crack
                         // at continuing the game if the original gatherer disappears, and (2) we can
                         // save the game on our own machine and continue it properly (as part of a bigger scenario) later.
-                        uint32 theParentChecksum = theWadHeader.parent_checksum;
-                        if(use_map_file(theParentChecksum))
+                        
+                        if(found_map)
                         {
                                 // LP: getting the level scripting off of the map file
                                 // Being careful to carry over errors so that Pfhortran errors can be ignored
                                 short SavedType, SavedError = get_game_error(&SavedType);
-                                RunLevelScript(dynamic_world->current_level_number);
-				RunScriptChunks();
-				LoadStatsLua();
+								LoadStatsLua();
                                 set_game_error(SavedType,SavedError);
                         }
                         else
                         {
-                                /* Tell the user they’re screwed when they try to leave this level. */
+                                /* Tell the user they‚Äôre screwed when they try to leave this level. */
                                 // ZZZ: should really issue a different warning since the ramifications are different
                                 alert_user(infoError, strERRORS, cantFindMap, 0);
         
@@ -829,8 +850,6 @@ bool join_networked_resume_game()
                                 /* Set to the default map. */
                                 set_to_default_map();
 				
-				ResetLevelScript();
-				RunScriptChunks();
 				LoadStatsLua();
                         }
                         
@@ -870,9 +889,9 @@ bool load_and_start_game(FileSpecifier& File)
 		interface_fade_out(MAIN_MENU_BASE, true);
 	}
 
-	// run scripts after we decide single vs. multiplayer
-	bool found_map;
-	success= load_game_from_file(File, false, &found_map);
+	auto pluginMode = saved_game_was_networked(File) == 1 ? Plugins::kMode_Net : Plugins::kMode_Solo;
+	Plugins::instance()->set_mode(pluginMode);
+	success= load_game_from_file(File, false);
 
 	if (!success)
 	{
@@ -912,23 +931,13 @@ bool load_and_start_game(FileSpecifier& File)
                 
 		if (success)
 		{
-			Plugins::instance()->set_mode(userWantsMultiplayer ? Plugins::kMode_Net : Plugins::kMode_Solo);
 			Crosshairs_SetActive(player_preferences->crosshairs_active);
 			LoadHUDLua();
 			RunLuaHUDScript();
 			
 			// load the scripts we put off before
 			short SavedType, SavedError = get_game_error(&SavedType);
-			if (found_map)
-			{
-				RunLevelScript(dynamic_world->current_level_number);
-			}
-			else
-			{
-				ResetLevelScript();
-			}
-			RunScriptChunks();
-			if (!userWantsMultiplayer)
+			if(!userWantsMultiplayer)
 			{
 				LoadSoloLua();
 			}
@@ -1014,6 +1023,16 @@ bool handle_open_replay(FileSpecifier& File)
 	return success;
 }
 
+bool handle_edit_map()
+{
+	bool success;
+
+	force_system_colors();
+	success = begin_game(_single_player, false);
+	if (!success) display_main_menu();
+	return success;
+}
+
 // Called from within update_world..
 bool check_level_change(
 	void)
@@ -1061,7 +1080,7 @@ void draw_menu_button_for_command(
 	
 	/* Draw it initially depressed.. */
 	draw_button(rectangle_index, true);
-	SDL_Delay(1000 / 12);
+	sleep_for_machine_ticks(MACHINE_TICKS_PER_SECOND / 12);
 	draw_button(rectangle_index, false);
 }
 
@@ -1084,6 +1103,9 @@ void update_interface_display(
 		}
 	}
 }
+
+extern bool first_frame_rendered;
+float last_heartbeat_fraction = -1.f;
 
 bool idle_game_state(uint32 time)
 {
@@ -1190,7 +1212,7 @@ bool idle_game_state(uint32 time)
 		game_state.last_ticks_on_idle= machine_tick_count();
 	}
 
-	/* if we’re not paused and there’s something to draw (i.e., anything different from
+	/* if we‚Äôre not paused and there‚Äôs something to draw (i.e., anything different from
 		last time), render a frame */
 	if(game_state.state==_game_in_progress)
 	{
@@ -1204,8 +1226,12 @@ bool idle_game_state(uint32 time)
 			// ZZZ: I don't know for sure that render_screen works best with the number of _real_
 			// ticks elapsed rather than the number of (potentially predictive) ticks elapsed.
 			// This is a guess.
-			if (theUpdateResult.first)
+			auto heartbeat_fraction = get_heartbeat_fraction();
+			if (theUpdateResult.first || (last_heartbeat_fraction != -1 && last_heartbeat_fraction != heartbeat_fraction)) {
+				last_heartbeat_fraction = heartbeat_fraction;
 				render_screen(ticks_elapsed);
+				first_frame_rendered = ticks_elapsed > 0;
+			}
 		}
 		
 		return theUpdateResult.first;
@@ -1358,7 +1384,7 @@ void do_menu_item_command(
 						{
 							case _single_player:
 								if(PLAYER_IS_DEAD(local_player) || 
-									dynamic_world->tick_count-local_player->ticks_at_last_successful_save<CLOSE_WITHOUT_WARNING_DELAY)
+								   dynamic_world->tick_count-local_player->ticks_at_last_successful_save<CLOSE_WITHOUT_WARNING_DELAY || shell_options.output.size())
 								{
 									really_wants_to_quit= true;
 								} else {
@@ -1766,6 +1792,8 @@ static void display_about_dialog()
 	authors.push_back("Will Dyson");
 	authors.push_back("Carl Gherardi");
 	authors.push_back("Thomas Herzog");
+	authors.push_back("Chris Hallock (LidMop)");
+	authors.push_back(utf8_to_mac_roman("Beno√Æt Hauquier (Kolfering)"));
 	authors.push_back("Peter Hessler");
 	authors.push_back("Matthew Hielscher");
 	authors.push_back("Rhys Hill");
@@ -1798,6 +1826,7 @@ static void display_about_dialog()
 	authors.push_back("Alexander Strange (mrvacbob)");
 	authors.push_back("Alexei Svitkine");
 	authors.push_back("Ben Thompson");
+	authors.push_back("TrajansRow");
 	authors.push_back("Clemens Unterkofler (hogdotmac)");
 	authors.push_back("James Willson");
 	authors.push_back("Woody Zenfell III");
@@ -2093,6 +2122,12 @@ static bool begin_game(
 						load_film_profile(FILM_PROFILE_ALEPH_ONE_1_1);
 						break;
 					case RECORDING_VERSION_ALEPH_ONE_1_2:
+						load_film_profile(FILM_PROFILE_ALEPH_ONE_1_2);
+						break;
+					case RECORDING_VERSION_ALEPH_ONE_1_3:
+						load_film_profile(FILM_PROFILE_ALEPH_ONE_1_3);
+						break;
+					case RECORDING_VERSION_ALEPH_ONE_1_4:
 						load_film_profile(FILM_PROFILE_DEFAULT);
 						break;
 					default:
@@ -2316,6 +2351,20 @@ static void finish_game(
 			break;
 	}
 	Movie::instance()->StopRecording();
+
+	if (shell_options.editor && shell_options.output.size())
+	{
+		L_Call_Cleanup();
+		FileSpecifier file(shell_options.output);
+		if (export_level(file))
+		{
+			exit(0);
+		}
+		else
+		{
+			exit(-1);
+		}
+	}
 
 	/* Fade out! (Pray) */ // should be interface_color_table for valkyrie, but doesn't work.
 	Music::instance()->ClearLevelMusic();
@@ -2880,8 +2929,6 @@ void interface_fade_out(
 	assert(current_picture_clut);
 	if(current_picture_clut)
 	{
-		struct color_table *fadeout_animated_color_table;
-
 		/* We have to check this because they could go into preferences and change on us, */
 		/*  the evil swine. */
 		if(current_picture_clut_depth != interface_bit_depth)
@@ -2892,21 +2939,11 @@ void interface_fade_out(
 		}
 		
 		hide_cursor();
-			
-		fadeout_animated_color_table= new color_table;
-		obj_copy(*fadeout_animated_color_table, *current_picture_clut);
 
 		if(fade_music) 
 			Music::instance()->FadeOut(MACHINE_TICKS_PER_SECOND/2);
-		if (fadeout_animated_color_table)
-		{
-			explicit_start_fade(_cinematic_fade_out, current_picture_clut, fadeout_animated_color_table);
-			while (update_fades()) 
-				Music::instance()->Idle();
 
-			/* Oops.  Founda  memory leak.. */
-			delete fadeout_animated_color_table;
-		}
+		full_fade(_cinematic_fade_out, current_picture_clut);
 		
 		if(fade_music) 
 		{
@@ -3139,6 +3176,7 @@ void show_movie(short index)
 		
 		SDL_PauseAudio(false);
 		bool done = false;
+		int64_t movie_waudio_sync = 0;
 		while (!done)
 		{
 			SDL_Event event;
@@ -3172,6 +3210,10 @@ void show_movie(short index)
 			
 			if (vframe)
 			{
+				if (!astream) 
+				{
+					movie_sync = machine_tick_count() - movie_waudio_sync;
+				}
 				if (!vframe->ready)
 				{
 					SDL_ffmpegGetVideoFrame(sffile, vframe);
@@ -3196,10 +3238,12 @@ void show_movie(short index)
 					vframe->ready = 0;
 					if (vframe->last)
 						done = true;
+
+					movie_waudio_sync = machine_tick_count() - vframe->pts;
 				}
 				else 
 				{
-					SDL_Delay(MIN(30, vframe->pts - movie_sync));
+					sleep_for_machine_ticks(MIN(30, vframe->pts - movie_sync));
 				}
 			}
 		}
@@ -3284,7 +3328,7 @@ void show_movie(short index)
 				}
 			}
 			
-			SDL_Delay(100);
+			sleep_for_machine_ticks(MACHINE_TICKS_PER_SECOND / 10);
 		}
 		SMPEG_delete(movie);
 #ifdef HAVE_OPENGL

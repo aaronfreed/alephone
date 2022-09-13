@@ -22,7 +22,7 @@ Friday, August 19, 1994 2:05:54 PM
 
 Monday, February 27, 1995 11:40:47 PM  (Jason')
 	rob suggests that the PPC might not write-allocate cache lines so we might be faster if we
-	read from a location weÕre about to write to.  he also suggested a rowbytes of 704 instead
+	read from a location weâ€™re about to write to.  he also suggested a rowbytes of 704 instead
 	of 640 off-screen for better cache performance.
 
 Jan 30, 2000 (Loren Petrich):
@@ -297,7 +297,7 @@ void texture_vertical_polygon_lines(
 
 			shading_table= (T *)line->shading_table;
 			read= line->texture;
-			write= (T *)screen->row_addresses[y0] + x;
+			write = (T *)(screen->row_addresses[0] + bytes_per_row * y0) + x; // invalid but unread if y0 == screen->height
 
 			for (count= y1-y0; count>0; --count)
 			{
@@ -341,7 +341,6 @@ void texture_vertical_polygon_lines(
 				T *temp_write;
 				
 				ymax= MAX(y0, y1), ymax= MAX(ymax, y2), ymax= MAX(ymax, y3);
-				write= (T *)screen->row_addresses[ymax] + x;
 				
 				{
 					int ymin= MIN(y1_table[0], y1_table[1]);
@@ -356,6 +355,8 @@ void texture_vertical_polygon_lines(
 					}
 				}
 
+				write = (T *)screen->row_addresses[ymax] + x;
+				
 				for (count= ymax-y0, temp_write= (T *)screen->row_addresses[y0] + x; count>0; --count)
 				{
 					copy_check_transparent<T, check_transparent>(temp_write, read0[texture_y0>>downshift], shading_table0);

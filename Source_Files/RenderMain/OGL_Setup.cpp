@@ -155,7 +155,7 @@ void OGL_StartProgress(int total_progress)
 		open_progress_dialog(_loading, true);
 	}
 	show_ogl_progress = true;
-	last_update_tick = SDL_GetTicks();
+	last_update_tick = machine_tick_count();
 }
 
 void OGL_ProgressCallback(int delta_progress)
@@ -163,7 +163,7 @@ void OGL_ProgressCallback(int delta_progress)
 	if (!show_ogl_progress) return;
 	ogl_progress += delta_progress;
 	{
-		int32 current_ticks = SDL_GetTicks();
+		int32 current_ticks = machine_tick_count();
 		if (current_ticks > last_update_tick + 33)
 		{
 			if (OGL_LoadScreen::instance()->Use())
@@ -494,7 +494,7 @@ void parse_mml_opengl(const InfoTree& root)
 	}
 
 	// texture options / clear, in order
-	BOOST_FOREACH(const InfoTree::value_type &v, root)
+	for (const InfoTree::value_type &v : root)
 	{
 		if (v.first == "texture")
 			parse_mml_opengl_texture(v.second);
@@ -503,7 +503,7 @@ void parse_mml_opengl(const InfoTree& root)
 	}
 	
 	// model data / clear, in order
-	BOOST_FOREACH(const InfoTree::value_type &v, root)
+	for (const InfoTree::value_type &v : root)
 	{
 		if (v.first == "model")
 			parse_mml_opengl_model(v.second);
@@ -511,12 +511,12 @@ void parse_mml_opengl(const InfoTree& root)
 			parse_mml_opengl_model_clear(v.second);
 	}
 	
-	BOOST_FOREACH(InfoTree shader, root.children_named("shader"))
+	for (const InfoTree &shader : root.children_named("shader"))
 	{
 		parse_mml_opengl_shader(shader);
 	}
 	
-	BOOST_FOREACH(InfoTree fog, root.children_named("fog"))
+	for (const InfoTree &fog : root.children_named("fog"))
 	{
 		int16 type = 0;
 		fog.read_indexed("type", type, OGL_NUMBER_OF_FOG_TYPES);
@@ -526,7 +526,7 @@ void parse_mml_opengl(const InfoTree& root)
 		fog.read_attr("depth", def.Depth);
 		fog.read_attr("landscapes", def.AffectsLandscapes);
 		
-		BOOST_FOREACH(InfoTree color, fog.children_named("color"))
+		for (const InfoTree &color : fog.children_named("color"))
 		{
 			color.read_color(def.Color);
 		}

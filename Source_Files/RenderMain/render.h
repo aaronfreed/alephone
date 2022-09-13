@@ -106,6 +106,7 @@ struct view_data
 
 	short ticks_elapsed;
 	uint32 tick_count; /* for effects and transfer modes */
+	float heartbeat_fraction;
 	short origin_polygon_index;
 	angle yaw, pitch, roll;
 	fixed_angle virtual_yaw, virtual_pitch;
@@ -153,7 +154,7 @@ struct view_data
 enum /* render flags */
 {
 	_polygon_is_visible_bit, /* some part of this polygon is horizontally in the view cone */
-	_endpoint_has_been_visited_bit, /* weÕve already tried to cast a ray out at this endpoint */
+	_endpoint_has_been_visited_bit, /* weâ€™ve already tried to cast a ray out at this endpoint */
 	_endpoint_is_visible_bit, /* this endpoint is horizontally in the view cone */
 	_side_is_visible_bit, /* this side was crossed while building the tree and should be drawn */
 	_line_has_clip_data_bit, /* this line has a valid clip entry */

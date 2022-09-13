@@ -24,12 +24,19 @@
  *
  *  Written in 2000 by Christian Bauer
  */
+
+#if defined _MSC_VER 
+ //not #if defined(_WIN32) because we have strcasecmp in mingw
+#define strcasecmp _stricmp
+#endif
+
 #include "cseries.h"
 #include "FileHandler.h"
 #include "resource_manager.h"
 
 #include "shell.h"
 #include "interface.h"
+#include "screen.h"
 #include "tags.h"
 
 #include <stdio.h>
@@ -38,8 +45,10 @@
 #include <limits.h>
 #include <string>
 #include <vector>
+#include <functional>
+#include <map>
 
-#include <SDL_endian.h>
+#include <SDL2/SDL_endian.h>
 
 #ifdef HAVE_UNISTD_H
 #include <sys/stat.h>
@@ -53,6 +62,9 @@
 #endif
 
 #if defined(__WIN32__)
+#if defined _MSC_VER
+#define R_OK 4
+#endif
 #include <wchar.h>
 #define PATH_SEP '\\'
 #else
@@ -65,10 +77,12 @@
 
 #include "preferences.h"
 
-#include <boost/bind.hpp>
-#include <boost/function.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
+
+#ifdef HAVE_NFD
+#include "nfd.h"
+#endif
 
 namespace io = boost::iostreams;
 namespace sys = boost::system;
@@ -1067,7 +1081,7 @@ public:
 
 	const FileSpecifier& get_file() { return current_directory; }
 	
-	boost::function<void(const std::string&)> file_selected;
+	std::function<void(const std::string&)> file_selected;
 	
 private:
 	vector<dir_entry>	entries;
@@ -1146,8 +1160,8 @@ public:
 protected:
 	void Init(const FileSpecifier& dir, w_directory_browsing_list::SortOrder default_order, std::string filename) {
 		m_sort_by_w = new w_select(static_cast<size_t>(default_order), sort_by_labels);
-		m_sort_by_w->set_selection_changed_callback(boost::bind(&FileDialog::on_change_sort_order, this));
-		m_up_button_w = new w_button("UP", boost::bind(&FileDialog::on_up, this));
+		m_sort_by_w->set_selection_changed_callback(std::bind(&FileDialog::on_change_sort_order, this));
+		m_up_button_w = new w_button("UP", std::bind(&FileDialog::on_up, this));
 		if (filename.empty()) 
 		{
 			m_list_w = new w_directory_browsing_list(dir, &m_dialog);
@@ -1157,7 +1171,7 @@ protected:
 			m_list_w = new w_directory_browsing_list(dir, &m_dialog, filename);
 		}
 		m_list_w->sort_by(default_order);
-		m_list_w->set_directory_changed_callback(boost::bind(&FileDialog::on_directory_changed, this));
+		m_list_w->set_directory_changed_callback(std::bind(&FileDialog::on_directory_changed, this));
 
 		dir.GetName(temporary);
 		m_directory_name_w = new w_static_text(temporary);
@@ -1242,7 +1256,7 @@ public:
 
 		Init(dir, default_order, filename);
 
-		m_list_w->file_selected = boost::bind(&ReadFileDialog::on_file_selected, this);
+		m_list_w->file_selected = std::bind(&ReadFileDialog::on_file_selected, this);
 	}
 	virtual ~ReadFileDialog() = default;
 	void Layout() {
@@ -1296,18 +1310,110 @@ private:
 	std::string m_filename;
 };
 
+static std::map<Typecode, const char*> typecode_filters {
+    {_typecode_scenario, "sceA"},
+    {_typecode_savegame, "sgaA"},
+    {_typecode_film, "filA"},
+    {_typecode_physics, "phyA"},
+    {_typecode_shapes, "shpA"},
+    {_typecode_sounds, "sndA"},
+    {_typecode_patch, "ShPa"},
+    {_typecode_images, "imgA"},
+    {_typecode_music, "aif;wav;ogg"},
+    {_typecode_movie, "webm"}
+};
+
 bool FileSpecifier::ReadDialog(Typecode type, const char *prompt)
 {
-	ReadFileDialog d(*this, type, prompt);
-	if (d.Run()) 
+#ifdef HAVE_NFD
+	if (environment_preferences->use_native_file_dialogs)
 	{
-		*this = d.GetFile();
-		return true;
-	} 
-	else 
-	{
-		return false;
+		// TODO: DRY (this is mostly copied from ReadFileDialog)
+		FileSpecifier dir = *this;
+		switch (type)
+		{
+		case _typecode_savegame:
+			dir.SetToSavedGamesDir();
+			break;
+		case _typecode_film:
+			dir.SetToRecordingsDir();
+			break;
+		case _typecode_scenario:
+		case _typecode_netscript:
+			// I think these should be in ReadFileDialog too, it's just never
+			// called on them
+		case _typecode_physics:
+		case _typecode_shapes:
+		case _typecode_sounds:
+		case _typecode_images:
+		case _typecode_unknown: // used for external resources
+		{
+			std::string filename;
+			DirectorySpecifier theDirectory;
+			dir.SplitPath(theDirectory, filename);
+			dir.FromDirectory(theDirectory);
+			if (!dir.Exists())
+			{
+				dir.SetToLocalDataDir();
+			}
+			break;
+		}
+		default:
+			dir.SetToLocalDataDir();
+			break;
+		}
+
+#if (defined(__APPLE__) && defined(__MACH__))
+		// NFD doesn't append a wildcard filter on mac, so if you set ANY
+		// filter here, anything without that extension gets grayed out. So, I
+		// guess just accept any files
+		const char* filters = nullptr;
+#else
+		auto filters = typecode_filters[type];
+#endif
+
+		nfdchar_t* outpath;
+#if defined(_WIN32)
+		auto fullscreen = get_screen_mode()->fullscreen;
+		if (fullscreen)
+		{
+			toggle_fullscreen(false);
+		}
+#endif		
+		auto result = NFD_OpenDialog(filters, dir.GetPath(), &outpath);
+#if defined(_WIN32)
+		if (fullscreen)
+		{
+			toggle_fullscreen(true);
+		}
+#endif
+		if (result == NFD_OKAY)
+		{
+			name = outpath;
+			free(outpath);
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
+	else
+	{
+#endif
+    ReadFileDialog d(*this, type, prompt);
+    if (d.Run()) 
+    {
+        *this = d.GetFile();
+        return true;
+    } 
+    else 
+    {
+        return false;
+    }
+#ifdef HAVE_NFD
+	}
+#endif
 }
 
 class w_file_name : public w_text_entry {
@@ -1392,7 +1498,7 @@ public:
 
 		Init(dir, default_order, m_default_name);
 
-		m_list_w->file_selected = boost::bind(&WriteFileDialog::on_file_selected, this, _1);
+		m_list_w->file_selected = std::bind(&WriteFileDialog::on_file_selected, this, std::placeholders::_1);
 	}
 	virtual ~WriteFileDialog() = default;
 	void Layout() {
@@ -1491,6 +1597,62 @@ static bool confirm_save_choice(FileSpecifier & file);
 
 bool FileSpecifier::WriteDialog(Typecode type, const char *prompt, const char *default_name)
 {
+#ifdef HAVE_NFD
+	if (environment_preferences->use_native_file_dialogs)
+	{
+		// TODO: DRY (this is copied from WriteDialog)
+		DirectorySpecifier dir = *this;
+		switch (type)
+		{
+		case _typecode_savegame:
+		{
+			std::string base;
+			std::string part;
+			dir.SplitPath(base, part);
+			if (part != std::string())
+			{
+				dir = base;
+			}
+			break;
+		}
+		case _typecode_film:
+		case _typecode_movie:
+			dir.SetToRecordingsDir();
+			break;
+		default:
+			dir.SetToLocalDataDir();
+			break;
+		}
+		
+		nfdchar_t* outpath;
+#if defined(_WIN32)
+		auto fullscreen = get_screen_mode()->fullscreen;
+		if (fullscreen)
+		{
+			toggle_fullscreen(false);
+		}
+#endif
+		auto result = NFD_SaveDialog(typecode_filters[type], dir.GetPath(), &outpath);
+#if defined(_WIN32)
+		if (fullscreen)
+		{
+			toggle_fullscreen(true);
+		}
+#endif
+		if (result == NFD_OKAY)
+		{
+			name = outpath;
+			free(outpath);
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+	else
+	{
+#endif
 again:
 	WriteFileDialog d(*this, type, prompt, default_name);
 	bool result = false;
@@ -1513,7 +1675,9 @@ again:
 	}
 		
 	return result;
-
+#ifdef HAVE_NFD
+	}
+#endif
 }
 
 bool FileSpecifier::WriteDialogAsync(Typecode type, char *prompt, char *default_name)

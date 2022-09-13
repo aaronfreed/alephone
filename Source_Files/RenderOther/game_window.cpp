@@ -148,7 +148,7 @@ struct weapon_interface_data weapon_interface_definitions[NUMBER_OF_WEAPON_INTER
 		_i_assault_rifle,
 		BUILD_DESCRIPTOR(_collection_interface, _assault_panel),
 		430, 452,
-		439, NONE, //¥¥
+		439, NONE, //â€¢â€¢
 		366, 460, 
 		false,
 		{
@@ -246,7 +246,7 @@ struct weapon_interface_data weapon_interface_definitions[NUMBER_OF_WEAPON_INTER
 		_i_smg,
 		BUILD_DESCRIPTOR(_collection_interface, _smg),
 		430, 452,
-		439, NONE, //¥¥
+		439, NONE, //â€¢â€¢
 		366, 460, 
 		false,
 		{
@@ -500,9 +500,9 @@ void draw_panels(void)
 	ensure_HUD_buffer();
 
 	// Draw static HUD picture
-	static SDL_Surface *static_hud_pict = NULL;
+	static std::shared_ptr<SDL_Surface> static_hud_pict = std::shared_ptr<SDL_Surface>(nullptr, SDL_FreeSurface);
 	static bool hud_pict_not_found = false;
-	if (static_hud_pict == NULL && !hud_pict_not_found) {
+	if (!static_hud_pict && !hud_pict_not_found) {
 		LoadedResource rsrc;
 		if (get_picture_resource_from_images(INTERFACE_PANEL_BASE, rsrc))
 			static_hud_pict = picture_to_surface(rsrc);
@@ -513,7 +513,7 @@ void draw_panels(void)
 	if (!hud_pict_not_found) {
 		SDL_Rect dst_rect = {0, 320, 640, 160};
 		if (!LuaTexturePaletteSize())
-			SDL_BlitSurface(static_hud_pict, NULL, HUD_Buffer, &dst_rect);
+			SDL_BlitSurface(static_hud_pict.get(), NULL, HUD_Buffer, &dst_rect);
 		else
 			SDL_FillRect(HUD_Buffer, &dst_rect, 0);
 	}
@@ -552,7 +552,7 @@ void parse_mml_interface(const InfoTree& root)
 	
 	root.read_attr("motion_sensor", MotionSensorActive);
 	
-	BOOST_FOREACH(InfoTree rect, root.children_named("rect"))
+	for (const InfoTree &rect : root.children_named("rect"))
 	{
 		int16 index;
 		if (!rect.read_indexed("index", index, NUMBER_OF_INTERFACE_RECTANGLES))
@@ -572,14 +572,14 @@ void parse_mml_interface(const InfoTree& root)
 		}
 	}
 	
-	BOOST_FOREACH(InfoTree color, root.children_named("color"))
+	for (const InfoTree &color : root.children_named("color"))
 	{
 		int16 index;
 		if (!color.read_indexed("index", index, NUMBER_OF_INTERFACE_COLORS))
 			continue;
 		color.read_color(get_interface_color(index));
 	}
-	BOOST_FOREACH(InfoTree font, root.children_named("font"))
+	for (const InfoTree &font : root.children_named("font"))
 	{
 		int16 index;
 		if (!font.read_indexed("index", index, NUMBER_OF_INTERFACE_FONTS))
@@ -587,13 +587,13 @@ void parse_mml_interface(const InfoTree& root)
 		font.read_font(get_interface_font(index));
 	}
 	
-	BOOST_FOREACH(InfoTree vid, root.children_named("vidmaster"))
+	for (const InfoTree &vid : root.children_named("vidmaster"))
 	{
 		vidmasterStringSetID = -1;
 		vid.read_attr_bounded<int16>("stringset_index", vidmasterStringSetID, -1, SHRT_MAX);
 	}
 	
-	BOOST_FOREACH(InfoTree weapon, root.children_named("weapon"))
+	for (const InfoTree &weapon : root.children_named("weapon"))
 	{
 		int16 index;
 		if (!weapon.read_indexed("index", index, MAXIMUM_WEAPON_INTERFACE_DEFINITIONS))
@@ -613,7 +613,7 @@ void parse_mml_interface(const InfoTree& root)
 		weapon.read_attr("multiple_delta_x", def.multiple_delta_x);
 		weapon.read_attr("multiple_delta_y", def.multiple_delta_y);
 		
-		BOOST_FOREACH(InfoTree ammo, weapon.children_named("ammo"))
+		for (const InfoTree &ammo : weapon.children_named("ammo"))
 		{
 			int16 index;
 			if (!ammo.read_indexed("index", index, NUMBER_OF_WEAPON_INTERFACE_ITEMS))

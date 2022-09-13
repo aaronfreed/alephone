@@ -57,6 +57,8 @@ May 3, 2003 (Br'fin (Jeremy Parsons))
 #include "OGL_Setup.h"
 #include "ChaseCam.h"
 #include "player.h"
+#include "ephemera.h"
+#include "preferences.h"
 
 #include <string.h>
 #include <limits.h>
@@ -98,7 +100,6 @@ void RenderPlaceObjsClass::initialize_render_object_list()
 	RenderObjects.clear();
 }
 
-
 /* walk our sorted polygon lists, adding every object in every polygon to the render_object list,
 	in depth order */
 void RenderPlaceObjsClass::build_render_object_list()
@@ -128,8 +129,11 @@ void RenderPlaceObjsClass::build_render_object_list()
 			sorted_node_data *base_nodes[MAXIMUM_OBJECT_BASE_NODES];
 			
 			float Opacity = (object_index == self_index) ? GetChaseCamData().Opacity : 1;
-			render_object_data *render_object= build_render_object(NULL, floor_intensity, ceiling_intensity,
-				base_nodes, &base_node_count, object_index, Opacity, NULL);
+			render_object_data *render_object=
+				build_render_object(NULL, floor_intensity, ceiling_intensity,
+									base_nodes, &base_node_count,
+									get_object_data(object_index),
+									Opacity, NULL);
 			
 			if (render_object)
 			{
@@ -138,6 +142,27 @@ void RenderPlaceObjsClass::build_render_object_list()
 			}
 			
 			object_index= get_object_data(object_index)->next_object;
+		}
+
+		if (graphics_preferences->ephemera_quality != _ephemera_off)
+		{
+			auto ephemera_index = get_polygon_ephemera(sorted_node->polygon_index);
+			while (ephemera_index != NONE)
+			{
+				short base_node_count;
+				sorted_node_data* base_nodes[MAXIMUM_OBJECT_BASE_NODES];
+				
+				render_object_data* render_object =
+					build_render_object(nullptr, floor_intensity, ceiling_intensity, base_nodes, &base_node_count, get_ephemera_data(ephemera_index), 1, nullptr);
+				
+				if (render_object)
+				{
+					build_aggregate_render_object_clipping_window(render_object, base_nodes, base_node_count);
+					sort_render_object_into_tree(render_object, base_nodes, base_node_count);
+				}
+				
+				ephemera_index = get_ephemera_data(ephemera_index)->next_object;
+			}
 		}
 	}
 }
@@ -150,11 +175,10 @@ render_object_data *RenderPlaceObjsClass::build_render_object(
 	_fixed ceiling_intensity,
 	sorted_node_data **base_nodes,
 	short *base_node_count,
-	short object_index, float Opacity,
+	object_data* object, float Opacity,
 	long_point3d *rel_origin)
 {
 	render_object_data *render_object= NULL;
-	object_data *object= get_object_data(object_index);
 	// LP: reference to simplify the code
 	vector<sorted_node_data>& SortedNodes = RSPtr->SortedNodes;
 	
@@ -205,8 +229,8 @@ render_object_data *RenderPlaceObjsClass::build_render_object(
 			// For the convenience of the 3D-model renderer
 			int LightDepth = transformed_origin.x;
 			GLfloat LightDirection[3];
-			
-			get_object_shape_and_transfer_mode(&view->origin, object_index, &data);
+
+			get_object_shape_and_transfer_mode(&view->origin, object, &data);
 			// Nonexistent shape: skip
 			if (data.collection_code == NONE) return NULL;
 			
@@ -301,6 +325,7 @@ render_object_data *RenderPlaceObjsClass::build_render_object(
 				}
 				render_object= &RenderObjects[Length];
 				
+				render_object->clipping_windows = nullptr;
 				render_object->rectangle.flags= 0;
 				
 				// Clamp to short values
@@ -400,8 +425,16 @@ render_object_data *RenderPlaceObjsClass::build_render_object(
 					parasitic_rel_origin.x = shape_information->world_x0;
 					parasitic_origin.z+= shape_information->world_y0;
 					parasitic_origin.y+= shape_information->world_x0;
-					parasitic_render_object= build_render_object(&parasitic_origin, floor_intensity, ceiling_intensity,
-						NULL, NULL, object->parasitic_object, Opacity, &parasitic_rel_origin);
+					
+					const auto render_object_index = render_object - RenderObjects.data();
+					
+					parasitic_render_object= build_render_object
+						(&parasitic_origin, floor_intensity, ceiling_intensity,
+						 NULL, NULL, get_object_data(object->parasitic_object),
+						 Opacity, &parasitic_rel_origin);
+					
+					// Recover our pointer after build_render_object() potentially invalidated it
+					render_object = &RenderObjects[render_object_index];
 					
 					if (parasitic_render_object)
 					{
@@ -483,7 +516,7 @@ void RenderPlaceObjsClass::sort_render_object_into_tree(
 		}
 	}
 
-	/* find the node weÕd like to be in (that is, the node closest to the viewer of all the nodes
+	/* find the node weâ€™d like to be in (that is, the node closest to the viewer of all the nodes
 		we cross and therefore the latest one in the sorted node list) */
 	desired_node= base_nodes[0];
 	for (i= 1; i<base_node_count; ++i) if (base_nodes[i]>desired_node) desired_node= base_nodes[i];
@@ -513,7 +546,7 @@ void RenderPlaceObjsClass::sort_render_object_into_tree(
 		}
 	}
 	
-	/* update the .node fields of all the objects weÕre about to add to reflect their new
+	/* update the .node fields of all the objects weâ€™re about to add to reflect their new
 		location in the sorted node list */
 	for (render_object= new_render_object; render_object; render_object= render_object->next_object)
 	{
@@ -566,8 +599,8 @@ enum /* build_base_node_list() states */
 };
 
 /* we once thought it would be a clever idea to use the transformed endpoints, but, not.  we
-	now bail if we canÕt find a way out of the polygon we are given; usually this happens
-	when weÕre moving along gridlines */
+	now bail if we canâ€™t find a way out of the polygon we are given; usually this happens
+	when weâ€™re moving along gridlines */
 short RenderPlaceObjsClass::build_base_node_list(
 	short origin_polygon_index,
 	world_point3d *origin,
@@ -616,7 +649,7 @@ short RenderPlaceObjsClass::build_base_node_list(
 		do
 		{
 			polygon_data *polygon= get_polygon_data(polygon_index);
-			short state= _looking_for_first_nonzero_vertex; /* really: testing first vertex state (we donÕt have zero vertices) */
+			short state= _looking_for_first_nonzero_vertex; /* really: testing first vertex state (we donâ€™t have zero vertices) */
 			short vertex_index= 0, vertex_delta= 1; /* start searching clockwise from vertex zero */
 			world_point2d *vertex, *next_vertex;
 			
@@ -664,7 +697,7 @@ short RenderPlaceObjsClass::build_base_node_list(
 				/* adjust vertex_index (clockwise or counterclockwise, depending on vertex_delta) */
 				vertex_index= (vertex_delta<0) ? WRAP_LOW(vertex_index, polygon->vertex_count-1) :
 					WRAP_HIGH(vertex_index, polygon->vertex_count-1);
-				if (state!=NONE&&!vertex_index) polygon_index= state= NONE; /* we canÕt find a way out; give up */
+				if (state!=NONE&&!vertex_index) polygon_index= state= NONE; /* we canâ€™t find a way out; give up */
 			}
 			while (state!=NONE);
 			
@@ -672,19 +705,19 @@ short RenderPlaceObjsClass::build_base_node_list(
 			{
 				polygon= get_polygon_data(polygon_index);
 				
-				/* canÕt do above clipping (see note in change history) */
+				/* canâ€™t do above clipping (see note in change history) */
 				if ((view->origin.z<origin->z && polygon->floor_height<origin_polygon_floor_height) ||
 					(view->origin.z>origin->z && origin->z+WORLD_ONE_HALF<polygon->floor_height && polygon->floor_height>origin_polygon_floor_height))
 				{
-					/* if weÕre above the viewer and going into a lower polygon or below the viewer and going
-						into a higher polygon, donÕt */
+					/* if weâ€™re above the viewer and going into a lower polygon or below the viewer and going
+						into a higher polygon, donâ€™t */
 //					dprintf("discarding polygon #%d by height", polygon_index);
 					polygon_index= NONE;
 				}
 				else
 				{
 //					dprintf("  into polygon #%d", polygon_index);
-					if (!TEST_RENDER_FLAG(polygon_index, _polygon_is_visible)) polygon_index= NONE; /* donÕt have transformed data, donÕt even try! */
+					if (!TEST_RENDER_FLAG(polygon_index, _polygon_is_visible)) polygon_index= NONE; /* donâ€™t have transformed data, donâ€™t even try! */
 					if ((destination.x-vertex->x)*(next_vertex->y-vertex->y) - (destination.y-vertex->y)*(next_vertex->x-vertex->x) <= 0) polygon_index= NONE;
 					if (polygon_index!=NONE && base_node_count<MAXIMUM_OBJECT_BASE_NODES) base_nodes[base_node_count++]= polygon_index_to_sorted_node[polygon_index];
 				}
@@ -738,7 +771,7 @@ void RenderPlaceObjsClass::build_aggregate_render_object_clipping_window(
 				win_depth = MIN(win_depth, ABS(window->right.i)+1);
 			}
 		}
-		int32 depth= MAX(render_object->rectangle.depth + view->screen_width, win_depth);
+		int32 depth= MAX(render_object->rectangle.depth, win_depth);
 		
 		/* find the upper and lower bounds of the windows; we could do a better job than this by
 			doing the same thing we do when the windows are originally built (i.e., calculating a
@@ -759,12 +792,12 @@ void RenderPlaceObjsClass::build_aggregate_render_object_clipping_window(
 			if (window->y0<y0) y0= window->y0;
 			if (window->y1>y1) y1= window->y1;
  			
-			/* sort in the left side of this window */
-			if (ABS(window->left.i)<depth)
+			if (ABS(window->left.i)<depth || ABS(window->right.i)<depth)
 			{
+				/* sort in the left side of this window */
 				for (j= 0; j<left_count && window->x0>=x0[j]; ++j)
 					;
-				for (k= j; k<left_count; ++k)
+				for (k = left_count - 1; k >= j; --k)
 				{
 					x0[k+1]= x0[k];
 					lvec[k+1]= lvec[k];
@@ -772,14 +805,11 @@ void RenderPlaceObjsClass::build_aggregate_render_object_clipping_window(
 				x0[j]= window->x0;
 				lvec[j]= window->left;
 				left_count+= 1;
-			}
-			
-			/* sort in the right side of this window */
-			if (ABS(window->right.i)<depth)
-			{
+
+				/* sort in the right side of this window */
 				for (j= 0; j<right_count && window->x1>=x1[j]; ++j)
 					;
-				for (k= j; k<right_count; ++k)
+				for (k = right_count - 1; k >= j; --k)
 				{
 					x1[k+1]= x1[k];
 					rvec[k+1]= rvec[k];
@@ -844,7 +874,7 @@ void RenderPlaceObjsClass::build_aggregate_render_object_clipping_window(
 					first_window= window;
 				}
 				
-				/* advance left by one, then advance right until itÕs greater than left */
+				/* advance left by one, then advance right until itâ€™s greater than left */
 				if (++left<left_count) while (x0[left]>x1[right] && right<right_count) ++right;
 			}
 			else
