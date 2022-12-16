@@ -1,4 +1,4 @@
-name: release-windows
+name: aaron-build-windows
 
 on: [workflow_dispatch, workflow_call]
 
