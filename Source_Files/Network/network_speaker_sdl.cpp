@@ -213,7 +213,7 @@ dequeue_network_speaker_data() {
 void
 close_network_speaker() {
     if (streamPlayer) {
-        streamPlayer->Stop();
+        streamPlayer->AskStop();
         streamPlayer.reset();
     }
 

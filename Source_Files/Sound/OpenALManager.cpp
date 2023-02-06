@@ -7,15 +7,12 @@ LPALCISRENDERFORMATSUPPORTEDSOFT OpenALManager::alcIsRenderFormatSupportedSOFT;
 LPALCRENDERSAMPLESSOFT OpenALManager::alcRenderSamplesSOFT;
 
 OpenALManager* OpenALManager::instance = nullptr;
-OpenALManager* OpenALManager::Get() {
-	return instance;
-}
 
 bool OpenALManager::Init(AudioParameters parameters) {
 
 	if (instance) { //Don't bother recreating all the OpenAL context if nothing changed for it
 		if (parameters.hrtf != instance->audio_parameters.hrtf || parameters.rate != instance->audio_parameters.rate
-			|| parameters.stereo != instance->audio_parameters.stereo) {
+			|| parameters.stereo != instance->audio_parameters.stereo || parameters.sample_frame_size != instance->audio_parameters.sample_frame_size) {
 
 			Shutdown();
 
@@ -50,7 +47,7 @@ void OpenALManager::ProcessAudioQueue() {
 	for (int i = 0; i < audio_players_queue.size(); i++) {
 
 		auto audio = audio_players_queue.front();
-		bool mustStillPlay = audio->IsActive() && audio->AssignSource() && audio->Update() && audio->SetUpALSourceIdle() && audio->Play();
+		bool mustStillPlay = !audio->stop_signal && audio->AssignSource() && audio->Update() && audio->Play();
 
 		audio_players_queue.pop_front();
 
@@ -90,6 +87,12 @@ void OpenALManager::UpdateListener() {
 	alListenerfv(AL_ORIENTATION, vectordirection);
 	alListener3f(AL_POSITION, positionX, positionZ, positionY);
 	alListenerfv(AL_VELOCITY, velocity);
+}
+
+void OpenALManager::SetDefaultVolume(float volume) {
+	if (default_volume == volume) return;
+	default_volume = volume;
+	for (auto& player : audio_players_local) player->is_sync_with_al_parameters = false;
 }
 
 void OpenALManager::Start() {
@@ -199,7 +202,7 @@ std::unique_ptr<AudioPlayer::AudioSource> OpenALManager::PickAvailableSource(flo
 
 void OpenALManager::StopSound(short sound_identifier, short source_identifier) {
 	auto player = GetSoundPlayer(sound_identifier, source_identifier, !audio_parameters.sounds_3d);
-	if (player) player->Stop();
+	if (player) player->AskStop();
 }
 
 void OpenALManager::StopAllPlayers() {
@@ -214,11 +217,7 @@ void OpenALManager::StopAllPlayers() {
 void OpenALManager::RetrieveSource(std::shared_ptr<AudioPlayer> player) {
 	auto audioSource = player->RetrieveSource();
 	if (audioSource) sources_pool.push(std::move(audioSource));
-	player->Stop();
-}
-
-int OpenALManager::GetFrequency() const {
-	return audio_parameters.rate;
+	player->is_active = false;
 }
 
 void OpenALManager::CleanInactivePlayers() {
@@ -369,10 +368,11 @@ OpenALManager::OpenALManager(AudioParameters parameters) {
 
 	auto openalFormat = GetBestOpenALRenderingFormat(parameters.stereo ? ALC_STEREO_SOFT : ALC_MONO_SOFT);
 	assert(openalFormat && "Audio format not found or not supported");
+	SDL_AudioSpec desired = {};
 	desired.freq = parameters.rate;
 	desired.format = openalFormat ? mapping_openal_sdl.at(openalFormat) : 0;
 	desired.channels = parameters.stereo ? 2 : 1;
-	desired.samples = number_samples * desired.channels * SDL_AUDIO_BITSIZE(desired.format) / 8;
+	desired.samples = parameters.sample_frame_size;
 	desired.callback = MixerCallback;
 	desired.userdata = reinterpret_cast<void*>(this);
 

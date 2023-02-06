@@ -6,10 +6,19 @@
 #include "sound_definitions.h"
 
 struct SoundStereo {
+
 	bool is_panning;
 	float gain_global;
 	float gain_left;
 	float gain_right;
+
+	bool operator==(const SoundStereo& other) const {
+		return std::tie(is_panning, gain_global, gain_right, gain_left) == std::tie(other.is_panning, other.gain_global, other.gain_right, other.gain_left);
+	}
+
+	bool operator!=(const SoundStereo& other) const {
+		return !(*(this) == other);
+	}
 };
 
 struct SoundParameters {
@@ -23,6 +32,7 @@ struct SoundParameters {
 	uint16_t obstruction_flags = 0;
 	sound_behavior behavior = _sound_is_normal;
 	world_location3d source_location3d = {};
+	world_location3d* dynamic_source_location3d = nullptr;
 	SoundStereo stereo_parameters = {}; //2D panning
 	uint16_t flags = 0;
 };
@@ -57,7 +67,7 @@ private:
 	void SetUpALSource3D() const;
 	bool CanRewindSound(int baseTick) const { return baseTick + rewind_time < GetCurrentTick(); }
 	void Replace(const Sound sound) { this->sound.Store(sound); }
-	bool Update() override;
+	bool LoadParametersUpdates() override;
 	AtomicStructure<Sound> sound;
 	AtomicStructure<SoundParameters> parameters;
 	uint32_t data_length;

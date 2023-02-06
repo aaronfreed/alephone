@@ -40,6 +40,7 @@ const std::unordered_map<ALCint, AVSampleFormat> mapping_openal_ffmpeg = {
 
 struct AudioParameters {
 	int rate;
+	int sample_frame_size;
 	bool stereo;
 	bool balance_rewind;
 	bool hrtf;
@@ -49,7 +50,7 @@ struct AudioParameters {
 
 class OpenALManager {
 public:
-	static OpenALManager* Get();
+	static OpenALManager* Get() { return instance; }
 	static bool Init(AudioParameters parameters);
 	static float From_db(float db, bool music = false) { return db <= (SoundManager::MINIMUM_VOLUME_DB / (music ? 2 : 1)) ? 0 : std::pow(10.f, db / 20.f); }
 	static void Shutdown();
@@ -65,10 +66,10 @@ public:
 	std::shared_ptr<SoundPlayer> GetSoundPlayer(short identifier, short source_identifier, bool sound_identifier_only = false) const;
 	void UpdateListener(world_location3d listener) { listener_location.Set(listener); }
 	const world_location3d GetListener() const { return listener_location.Get(); }
-	void SetDefaultVolume(float volume) { default_volume = volume; }
+	void SetDefaultVolume(float volume);
 	float GetComputedVolume(bool filtered = true) const { return default_volume * (filters_volume.empty() || !filtered ? 1 : filters_volume.front()); }
 	void ToggleDeviceMode(bool recording_device);
-	int GetFrequency() const;
+	int GetFrequency() const { return audio_parameters.rate; }
 	void GetPlayBackAudio(uint8* data, int length);
 	void ApplyVolumeFilter(float volume_filter) { filters_volume.push(volume_filter); }
 	void RemoveVolumeFilter() { if(!filters_volume.empty()) filters_volume.pop(); }
@@ -109,8 +110,7 @@ private:
 	static LPALCRENDERSAMPLESSOFT alcRenderSamplesSOFT;
 
 	static void MixerCallback(void* usr, uint8* stream, int len);
-	const static int number_samples = 512;
-	SDL_AudioSpec desired, obtained;
+	SDL_AudioSpec obtained;
 	AudioParameters audio_parameters;
 	ALCint rendering_format = 0;
 
@@ -125,7 +125,6 @@ private:
 		ALC_UNSIGNED_BYTE_SOFT
 	};
 
-	//should probably replace those by boost bimap
 	const std::unordered_map<ALCint, int> mapping_openal_sdl = {
 		{ALC_FLOAT_SOFT, AUDIO_F32SYS},
 		{ALC_INT_SOFT, AUDIO_S32SYS},

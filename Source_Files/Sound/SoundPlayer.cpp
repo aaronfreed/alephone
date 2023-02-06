@@ -39,8 +39,9 @@ float SoundPlayer::Simulate(const SoundParameters soundParameters) {
 
 void SoundPlayer::Rewind() {
 	if (OpenALManager::Get()->IsBalanceRewindSound() && !CanRewindSound(start_tick))
-		rewind_state = false;
+		rewind_signal = false;
 	else {
+		sound.Update();
 		AudioPlayer::Rewind();
 		current_index_data = 0;
 		data_length = sound.Get().header.length;
@@ -68,7 +69,7 @@ int SoundPlayer::LoopManager(uint8* data, int length) {
 	return 0;
 }
 
-bool SoundPlayer::Update() {
+bool SoundPlayer::LoadParametersUpdates() {
 
 	SoundParameters sound_parameters, best_parameters;
 	float priority = 0, last_priority = 0;
@@ -84,10 +85,10 @@ bool SoundPlayer::Update() {
 
 	if (last_priority > 0) {
 		parameters.Set(best_parameters);
+		return true;
 	}
 
-	sound.Update();
-	return true;
+	return false;
 }
 
 //This is called everytime we process a player in the queue with this source

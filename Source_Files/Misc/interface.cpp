@@ -1652,7 +1652,7 @@ static void display_introduction(
 		display_screen(screen_data->screen_base);
 
 		if (introduction_sound) {
-			introduction_sound->Stop();
+			introduction_sound->AskStop();
 			introduction_sound.reset();
 		}
 		SoundRsrc.Unload();
@@ -2561,7 +2561,7 @@ static void next_game_screen(
 			if (game_state.state == _display_intro_screens)
 			{
 				if (introduction_sound) {
-					introduction_sound->Stop();
+					introduction_sound->AskStop();
 					introduction_sound.reset();
 				}
 				SoundRsrc.Unload();
@@ -2793,7 +2793,6 @@ static void try_and_display_chapter_screen(
 	{
 		short existing_state= game_state.state;
 		game_state.state= _display_chapter_heading;
-		SoundManager::instance()->StopAllSounds();
 		
 		/* This will NOT work if the initial level entered has a chapter screen, which is why */
 		/*  we perform this check. (The interface_color_table is not valid...) */
@@ -2844,7 +2843,7 @@ static void try_and_display_chapter_screen(
 			/* Fade out! (Pray) */
 			interface_fade_out(pict_resource_number, false);
 			
-			if(soundPlayer) soundPlayer->Stop();
+			if (soundPlayer) soundPlayer->AskStop();
 		}
 		game_state.state= existing_state;
 	}
