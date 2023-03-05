@@ -74,15 +74,14 @@ Aleph One requires a C++17 compiler and the following libraries:
 + `SDL2_net`
 + `SDL2_ttf`
 + `zlib`
++ `openal-soft`
 
 These libraries are recommended for full features and third-party scenario compatibility:
 
-+ `alsa` _for net mic_
 + `curl` _for stats upload to lhowon.org_
 + `ffmpeg` _for music playback and film video export_
 + `libsndfile` _for some old third party scenarios with compressed audio_
 + `miniupnpc` _for opening router ports_
-+ `speex` _for net mic_
 + `zziplib` _for using zipped plugins_
 
 #### Fedora
@@ -93,7 +92,7 @@ Then, install the following packages.
 
     sudo dnf install boost-devel curl-devel ffmpeg-devel gcc-c++ \
       libpng-devel SDL2-devel SDL2_ttf-devel SDL2_image-devel SDL2_net-devel \
-      speex-devel speexdsp-devel zziplib-devel miniupnpc-devel
+      zziplib-devel miniupnpc-devel openal-soft-devel
 
 As an alternative to using FFmpeg (which requires the RPM Fusion Repository), you can install alternative libraries:
 
@@ -106,9 +105,9 @@ If you don't compile with FFmpeg support, you won't be able to use WebM export i
 Run this command to install the necessary prerequisites for building Aleph One:
 
     sudo apt install build-essential libboost-all-dev libsdl2-dev \
-      libsdl2-image-dev libsdl2-net-dev libsdl2-ttf-dev \ libspeexdsp-dev
-      libzzip-dev libavcodec-dev libavformat-dev \ libavutil-dev libswscale-dev
-      libpng-dev libcurl4-gnutls-dev \ libminiupnpc-dev
+      libsdl2-image-dev libsdl2-net-dev libsdl2-ttf-dev \
+      libzzip-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+      libpng-dev libcurl4-gnutls-dev libminiupnpc-dev libopenal-dev
 	  
 ### Compile
 

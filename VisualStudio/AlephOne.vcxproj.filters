@@ -433,9 +433,6 @@
     <ClCompile Include="..\Source_Files\Network\network_dialogs.cpp">
       <Filter>Network\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\Source_Files\Network\network_dummy.cpp">
-      <Filter>Network\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\Source_Files\Network\network_games.cpp">
       <Filter>Network\Source Files</Filter>
     </ClCompile>
@@ -443,30 +440,6 @@
       <Filter>Network\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\Source_Files\Network\network_messages.cpp">
-      <Filter>Network\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source_Files\Network\network_microphone_coreaudio.cpp">
-      <Filter>Network\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source_Files\Network\network_microphone_sdl_alsa.cpp">
-      <Filter>Network\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source_Files\Network\network_microphone_sdl_dummy.cpp">
-      <Filter>Network\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source_Files\Network\network_microphone_sdl_win32.cpp">
-      <Filter>Network\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source_Files\Network\network_microphone_shared.cpp">
-      <Filter>Network\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source_Files\Network\network_speaker_sdl.cpp">
-      <Filter>Network\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source_Files\Network\network_speaker_shared.cpp">
-      <Filter>Network\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source_Files\Network\network_speex.cpp">
       <Filter>Network\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\Source_Files\Network\network_star_hub.cpp">
@@ -667,9 +640,6 @@
     <ClCompile Include="..\Source_Files\Sound\MADDecoder.cpp">
       <Filter>Sound\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\Source_Files\Sound\Mixer.cpp">
-      <Filter>Sound\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\Source_Files\Sound\Music.cpp">
       <Filter>Sound\Source Files</Filter>
     </ClCompile>
@@ -738,6 +708,21 @@
     </ClCompile>
     <ClCompile Include="..\Source_Files\Network\PortForward.cpp">
       <Filter>Network\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source_Files\Sound\StreamPlayer.cpp">
+      <Filter>Sound\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source_Files\Sound\SoundPlayer.cpp">
+      <Filter>Sound\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source_Files\Sound\OpenALManager.cpp">
+      <Filter>Sound\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source_Files\Sound\MusicPlayer.cpp">
+      <Filter>Sound\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source_Files\Sound\AudioPlayer.cpp">
+      <Filter>Sound\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1089,9 +1074,6 @@
     <ClInclude Include="..\Source_Files\Network\network.h">
       <Filter>Network\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\Source_Files\Network\network_audio_shared.h">
-      <Filter>Network\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\Source_Files\Network\network_capabilities.h">
       <Filter>Network\Header Files</Filter>
     </ClInclude>
@@ -1116,19 +1098,7 @@
     <ClInclude Include="..\Source_Files\Network\network_messages.h">
       <Filter>Network\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\Source_Files\Network\network_microphone_shared.h">
-      <Filter>Network\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\Source_Files\Network\network_private.h">
-      <Filter>Network\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Source_Files\Network\network_sound.h">
-      <Filter>Network\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Source_Files\Network\network_speaker_sdl.h">
-      <Filter>Network\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Source_Files\Network\network_speex.h">
       <Filter>Network\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Source_Files\Network\network_star.h">
@@ -1359,9 +1329,6 @@
     <ClInclude Include="..\Source_Files\Sound\MADDecoder.h">
       <Filter>Sound\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\Source_Files\Sound\Mixer.h">
-      <Filter>Sound\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\Source_Files\Sound\Music.h">
       <Filter>Sound\Header Files</Filter>
     </ClInclude>
@@ -1436,6 +1403,21 @@
     </ClInclude>
     <ClInclude Include="..\Source_Files\Network\PortForward.h">
       <Filter>Network\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source_Files\Sound\AudioPlayer.h">
+      <Filter>Sound\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source_Files\Sound\MusicPlayer.h">
+      <Filter>Sound\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source_Files\Sound\OpenALManager.h">
+      <Filter>Sound\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source_Files\Sound\SoundPlayer.h">
+      <Filter>Sound\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source_Files\Sound\StreamPlayer.h">
+      <Filter>Sound\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

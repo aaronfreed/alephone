@@ -30,6 +30,7 @@
 #include "Random.h"
 #include "SoundManager.h"
 #include <vector>
+#include "MusicPlayer.h"
 
 class Music
 {
@@ -50,9 +51,7 @@ public:
 	void Pause();
 	void Play();
 	bool Playing();
-	void Rewind();
 	void Restart();
-	bool FillBuffer();
 
 	void Idle();
 
@@ -67,9 +66,6 @@ public:
 	void SeedLevelMusic();
 	void SetClassicLevelMusic(short song_index);
 	bool HasClassicLevelMusic() { return marathon_1_song_index >= 0; }
-
-	void CheckVolume();
-
 private:
 	Music();
 	bool Load(FileSpecifier &file);
@@ -79,20 +75,9 @@ private:
 
 	float GetVolumeLevel() { return SoundManager::instance()->parameters.music_db; }
 
-	static const int MUSIC_BUFFER_SIZE = 1024;
-
-	std::vector<uint8> music_buffer;
 	StreamDecoder *decoder;
 
-	SDL_RWops* music_rw;
-
-	// info about the music's format
-	bool sixteen_bit;
-	bool stereo;
-	bool signed_8bit;
-	int bytes_per_frame;
-	_fixed rate;
-	bool little_endian;
+	std::shared_ptr<MusicPlayer> musicPlayer = nullptr;
 
 	FileSpecifier music_file;
 	FileSpecifier music_intro_file;

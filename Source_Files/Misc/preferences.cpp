@@ -101,6 +101,7 @@ May 22, 2003 (Woody Zenfell):
 #include <boost/algorithm/hex.hpp>
 
 #include "shell_options.h"
+#include "OpenALManager.h"
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -1008,6 +1009,11 @@ static const uint32 max_saves_values[] = {
 	20, 100, 500, 0
 };
 
+static const char* renderer_audio_labels[] = { 
+	"SDL", "OpenAL", NULL 
+};
+
+
 
 enum {
     iRENDERING_SYSTEM = 1000
@@ -1429,7 +1435,7 @@ static void graphics_dialog(void *arg)
  *  Sound dialog
  */
 
-class w_toggle *stereo_w, *dynamic_w;
+class w_toggle* stereo_w, * dynamic_w;
 
 class w_stereo_toggle : public w_toggle {
 public:
@@ -1456,8 +1462,6 @@ public:
 			stereo_w->set_selection(true);
 	}
 };
-
-static const char *channel_labels[] = {"1", "2", "4", "8", "16", "32", NULL};
 
 class w_volume_slider : public w_percentage_slider {
 public:
@@ -1507,6 +1511,15 @@ static void sound_dialog(void *arg)
 	table->dual_add(dynamic_w->label("Active Panning"), d);
 	table->dual_add(dynamic_w, d);
 
+	w_toggle *sounds3d_w = new w_toggle(sound_preferences->flags & _3d_sounds_flag);
+	table->dual_add(sounds3d_w->label("3D Sounds"), d);
+	table->dual_add(sounds3d_w, d);
+
+	w_toggle *hrtf_w = new w_toggle((OpenALManager::Get() && OpenALManager::Get()->Is_HRTF_Enabled()) || sound_preferences->flags & _hrtf_flag);
+	table->dual_add(hrtf_w->label("HRTF"), d);
+	table->dual_add(hrtf_w, d);
+	hrtf_w->set_enabled(OpenALManager::Get() && OpenALManager::Get()->Support_HRTF_Toggling());
+
 	w_toggle *ambient_w = new w_toggle(TEST_FLAG(sound_preferences->flags, _ambient_sound_flag));
 	table->dual_add(ambient_w->label("Ambient Sounds"), d);
 	table->dual_add(ambient_w, d);
@@ -1519,10 +1532,6 @@ static void sound_dialog(void *arg)
 	table->dual_add(button_sounds_w->label("In Game F-Key Sounds"), d);
 	table->dual_add(button_sounds_w, d);
 
-	w_select *channels_w = new w_select(static_cast<int>(std::floor(std::log(static_cast<float>(sound_preferences->channel_count)) / std::log(2.0) + 0.5)), channel_labels);
-	table->dual_add(channels_w->label("Channels"), d);
-	table->dual_add(channels_w, d);
-
 	w_volume_slider *volume_w = new w_volume_slider(static_cast<int>(sound_preferences->volume_db / 2 + 20));
 	table->dual_add(volume_w->label("Master Volume"), d);
 	table->dual_add(volume_w, d);
@@ -1530,14 +1539,6 @@ static void sound_dialog(void *arg)
 	w_slider *music_volume_w = new w_music_slider(sound_preferences->music_db + 20);
 	table->dual_add(music_volume_w->label("Music Volume"), d);
 	table->dual_add(music_volume_w, d);
-
-
-	table->add_row(new w_spacer(), true);
-	table->dual_add_row(new w_static_text("Network Microphone"), d);
-
-	w_toggle* mute_while_transmitting_w = new w_toggle(!sound_preferences->mute_while_transmitting);
-	table->dual_add(mute_while_transmitting_w->label("Headset Mic Mode"), d);
-	table->dual_add(mute_while_transmitting_w, d);
 
 	table->add_row(new w_spacer(), true);
 	table->dual_add_row(new w_static_text("Experimental Sound Options"), d);
@@ -1565,6 +1566,8 @@ static void sound_dialog(void *arg)
 
 		uint16 flags = 0;
 		if (quality_w->get_selection()) flags |= _16bit_sound_flag;
+		if (sounds3d_w->get_selection()) flags |= _3d_sounds_flag;
+		if (hrtf_w->get_selection()) flags |= _hrtf_flag;
 		if (stereo_w->get_selection()) flags |= _stereo_flag;
 		if (dynamic_w->get_selection()) flags |= _dynamic_tracking_flag;
 		if (ambient_w->get_selection()) flags |= _ambient_sound_flag;
@@ -1583,12 +1586,6 @@ static void sound_dialog(void *arg)
 			changed = true;
 		}
 
-		int16 channel_count = 1 << (channels_w->get_selection() == UNONE ? 1 : channels_w->get_selection());
-		if (channel_count != sound_preferences->channel_count) {
-			sound_preferences->channel_count = channel_count;
-			changed = true;
-		}
-
 		float volume_db = (volume_w->get_selection() - 20) * 2;
 		if (volume_db != sound_preferences->volume_db) {
 			sound_preferences->volume_db = volume_db;
@@ -1598,13 +1595,6 @@ static void sound_dialog(void *arg)
 		float music_db = music_volume_w->get_selection() - 20;
 		if (music_db != sound_preferences->music_db) {
 			sound_preferences->music_db = music_db;
-			changed = true;
-		}
-
-		bool mute_while_transmitting = !mute_while_transmitting_w->get_selection();
-		if (mute_while_transmitting != sound_preferences->mute_while_transmitting)
-		{
-			sound_preferences->mute_while_transmitting = mute_while_transmitting;
 			changed = true;
 		}
 
@@ -3743,16 +3733,13 @@ InfoTree sound_preferences_tree()
 {
 	InfoTree root;
 	
-	root.put_attr("channels", sound_preferences->channel_count);
 	root.put_attr("volume_db", sound_preferences->volume_db);
 	root.put_attr("music_db", sound_preferences->music_db);
 	root.put_attr("flags", sound_preferences->flags);
 	root.put_attr("rate", sound_preferences->rate);
 	root.put_attr("samples", sound_preferences->samples);
-	root.put_attr("volume_while_speaking", sound_preferences->volume_while_speaking);
-	root.put_attr("mute_while_transmitting", sound_preferences->mute_while_transmitting);
 	root.put_attr("video_export_volume_db", sound_preferences->video_export_volume_db);
-	
+
 	return root;
 }
 
@@ -3760,7 +3747,6 @@ InfoTree network_preferences_tree()
 {
 	InfoTree root;
 
-	root.put_attr("microphone", network_preferences->allow_microphone);
 	root.put_attr("untimed", network_preferences->game_is_untimed);
 	root.put_attr("type", network_preferences->type);
 	root.put_attr("game_type", network_preferences->game_type);
@@ -3925,7 +3911,6 @@ static void default_network_preferences(network_preferences_data *preferences)
 {
 	preferences->type= _ethernet;
 
-	preferences->allow_microphone = true;
 	preferences->game_is_untimed = false;
 	preferences->difficulty_level = 2;
 	preferences->game_options =	_multiplayer_game | _ammo_replenishes | _weapons_replenish
@@ -4123,7 +4108,6 @@ static bool validate_network_preferences(network_preferences_data *preferences)
 	bool changed= false;
 
 	// Fix bool options
-	preferences->allow_microphone = !!preferences->allow_microphone;
 	preferences->game_is_untimed = !!preferences->game_is_untimed;
 
 	if(preferences->type<0||preferences->type>_ethernet)
@@ -4140,12 +4124,6 @@ static bool validate_network_preferences(network_preferences_data *preferences)
 	if(preferences->game_is_untimed != true && preferences->game_is_untimed != false)
 	{
 		preferences->game_is_untimed= false;
-		changed= true;
-	}
-
-	if(preferences->allow_microphone != true && preferences->allow_microphone != false)
-	{
-		preferences->allow_microphone= true;
 		changed= true;
 	}
 
@@ -4700,8 +4678,6 @@ void parse_input_preferences(InfoTree root, std::string version)
 
 void parse_sound_preferences(InfoTree root, std::string version)
 {
-	root.read_attr("channels", sound_preferences->channel_count);
-
 	if (!version.length() || version < "20200803")
 	{
 		int old_volume;
@@ -4741,8 +4717,6 @@ void parse_sound_preferences(InfoTree root, std::string version)
 	root.read_attr("flags", sound_preferences->flags);
 	root.read_attr("rate", sound_preferences->rate);
 	root.read_attr("samples", sound_preferences->samples);
-	root.read_attr("volume_while_speaking", sound_preferences->volume_while_speaking);
-	root.read_attr("mute_while_transmitting", sound_preferences->mute_while_transmitting);
 	root.read_attr("video_export_volume_db", sound_preferences->video_export_volume_db);
 }
 
@@ -4750,7 +4724,6 @@ void parse_sound_preferences(InfoTree root, std::string version)
 
 void parse_network_preferences(InfoTree root, std::string version)
 {
-	root.read_attr("microphone", network_preferences->allow_microphone);
 	root.read_attr("untimed", network_preferences->game_is_untimed);
 	root.read_attr("type", network_preferences->type);
 	root.read_attr("game_type", network_preferences->game_type);

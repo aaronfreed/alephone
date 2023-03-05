@@ -153,45 +153,6 @@ int SDL_ffmpegDecodeAudioFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegAudioFrame
 
 int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegVideoFrame* );
 
-const SDL_ffmpegCodec SDL_ffmpegCodecAUTO =
-{
-    -1,
-    720, 576,
-    1, 25,
-    6000000,
-    -1, -1,
-    -1,
-    2, 48000,
-    192000,
-    -1, -1
-};
-
-const SDL_ffmpegCodec SDL_ffmpegCodecPALDVD =
-{
-    AV_CODEC_ID_MPEG2VIDEO,
-    720, 576,
-    1, 25,
-    6000000,
-    -1, -1,
-    AV_CODEC_ID_MP2,
-    2, 48000,
-    192000,
-    -1, -1
-};
-
-const SDL_ffmpegCodec SDL_ffmpegCodecPALDV =
-{
-    AV_CODEC_ID_DVVIDEO,
-    720, 576,
-    1, 25,
-    6553600,
-    -1, -1,
-    AV_CODEC_ID_DVAUDIO,
-    2, 48000,
-    256000,
-    -1, -1
-};
-
 SDL_ffmpegFile* SDL_ffmpegCreateFile()
 {
     /* create SDL_ffmpegFile pointer */
@@ -687,7 +648,7 @@ int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame, 
 
     // convert
     int32_t write_bps = av_get_bytes_per_sample(acodec->sample_fmt);
-    int32_t read_samples = frame->size / (2 * acodec->channels);
+    int32_t read_samples = frame->size / (av_get_bytes_per_sample(file->audioStream->audioFormat) * acodec->channels);
     int32_t write_samples = read_samples;
     if (read_samples < acodec->frame_size)
     {
@@ -801,7 +762,7 @@ SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t
 
     if ( file->type == SDL_ffmpegOutputStream )
     {
-        bytes = file->audioStream->encodeAudioInputSize * 2 * file->audioStream->_ctx->channels;
+        bytes = file->audioStream->encodeAudioInputSize * av_get_bytes_per_sample(file->audioStream->audioFormat) * file->audioStream->_ctx->channels;
 
         // allocate conversion buffer only when output, input does it differently
         if (av_samples_alloc_array_and_samples(&frame->conversionBuffer, NULL, file->audioStream->_ctx->channels, file->audioStream->encodeAudioInputSize, file->audioStream->_ctx->sample_fmt, 0) < 0)
@@ -1770,10 +1731,11 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
         /* _ffmpeg holds data about streamcodec */
         str->_ffmpeg = stream;
         str->_ctx = context;
+        str->audioFormat = codec.audioFormat;
 
         // init resampler
         str->swr_context = swr_alloc_set_opts(str->swr_context, context->channel_layout, context->sample_fmt, context->sample_rate,
-            context->channel_layout, AV_SAMPLE_FMT_S16, context->sample_rate, 0, NULL);
+            context->channel_layout, str->audioFormat, context->sample_rate, 0, NULL);
 
         if (!str->swr_context || swr_init(str->swr_context) < 0)
         {
