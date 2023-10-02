@@ -188,8 +188,8 @@ void OGL_StopProgress()
 // Sensible defaults for the fog:
 static OGL_FogData FogData[OGL_NUMBER_OF_FOG_TYPES] = 
 {
-	{{0x8000,0x8000,0x8000},8,false,true},
-	{{0x8000,0x8000,0x8000},8,false,true}
+	{{0x8000,0x8000,0x8000},8,0,false,true,OGL_Fog_Exp,1},
+	{{0x8000,0x8000,0x8000},8,0,false,true,OGL_Fog_Exp,1}
 };
 
 
@@ -250,7 +250,6 @@ void OGL_SetDefaults(OGL_ConfigureData& Data)
 		for (int ie=0; ie<2; ie++)
 			Data.LscpColors[il][ie] = DefaultLscpColors[il][ie];
 
-	Data.GeForceFix = false;
 	Data.WaitForVSync = true;
 	Data.Use_sRGB = false;
 	Data.Use_NPOT = false;
@@ -289,11 +288,6 @@ void OGL_TextureOptionsBase::Load()
 		flags |= ImageLoader_CanUseDXTC;
 	}
 
-	if (Get_OGL_ConfigureData().GeForceFix)
-	{
-		flags |= ImageLoader_LoadDXTC1AsDXTC3;
-	}
-	
 	// Load the normal image with alpha channel
 
 	// Check to see if loading needs to be done;
@@ -524,7 +518,10 @@ void parse_mml_opengl(const InfoTree& root)
 		
 		fog.read_attr("on", def.IsPresent);
 		fog.read_attr("depth", def.Depth);
+		fog.read_attr("start", def.Start);
 		fog.read_attr("landscapes", def.AffectsLandscapes);
+		fog.read_attr("mode", def.Mode);
+		fog.read_attr("landscape_mix", def.LandscapeMix);
 		
 		for (const InfoTree &color : fog.children_named("color"))
 		{

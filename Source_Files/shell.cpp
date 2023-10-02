@@ -62,7 +62,6 @@
 #include "mytm.h"	// mytm_initialize(), for platform-specific shell_*.h
 
 #include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
 #include <vector>
 
@@ -155,7 +154,6 @@ static bool force_windowed = false;   // Force windowed mode
 */
 
 // Prototypes
-static void main_event_loop(void);
 extern int process_keyword_key(char key);
 extern void handle_keyword(int type_of_cheat);
 
@@ -169,8 +167,6 @@ extern bool get_default_theme_spec(FileSpecifier& file);
 void execute_timer_tasks(uint32 time);
 
 // Prototypes
-static void initialize_application(void);
-void shutdown_application(void);
 static void initialize_marathon_music_handler(void);
 static void process_event(const SDL_Event &event);
 
@@ -248,96 +244,12 @@ bool handle_open_document(const std::string& filename)
 	return done;
 }
 
-
-int main(int argc, char **argv)
-{
-	// Print banner (don't bother if this doesn't appear when started from a GUI)
-	char app_name_version[256];
-	expand_app_variables(app_name_version, "Aleph One $appLongVersion$");
-	printf ("%s\n%s\n\n"
-	  "Original code by Bungie Software <http://www.bungie.com/>\n"
-	  "Additional work by Loren Petrich, Chris Pruett, Rhys Hill et al.\n"
-	  "TCP/IP networking by Woody Zenfell\n"
-	  "SDL port by Christian Bauer <Christian.Bauer@uni-mainz.de>\n"
-#if defined(__MACH__) && defined(__APPLE__)
-	  "Mac OS X/SDL version by Chris Lovell, Alexander Strange, and Woody Zenfell\n"
-#endif
-	  "\nThis is free software with ABSOLUTELY NO WARRANTY.\n"
-	  "You are welcome to redistribute it under certain conditions.\n"
-	  "For details, see the file COPYING.\n"
-#if defined(__WIN32__)
-	  // Windows is statically linked against SDL, so we have to include this:
-	  "\nSimple DirectMedia Layer (SDL) Library included under the terms of the\n"
-	  "GNU Library General Public License.\n"
-	  "For details, see the file COPYING.SDL.\n"
-#endif
-#if !defined(DISABLE_NETWORKING)
-	  "\nBuilt with network play enabled.\n"
-#endif
-#ifdef HAVE_LUA
-	  "\nBuilt with Lua scripting enabled.\n"
-#endif
-	  , app_name_version, A1_HOMEPAGE_URL
-    );
-
-	shell_options.parse(argc, argv);
-
-	auto code = 0;
-
-	try {
-		
-		// Initialize everything
-		initialize_application();
-
-		for (std::vector<std::string>::iterator it = shell_options.files.begin(); it != shell_options.files.end(); ++it)
-		{
-			if (handle_open_document(*it))
-			{
-				break;
-			}
-		}
-
-		// Run the main loop
-		main_event_loop();
-
-	} catch (std::exception &e) {
-		try 
-		{
-			logFatal("Unhandled exception: %s", e.what());
-		}
-		catch (...) 
-		{
-		}
-		code = 1;
-	} catch (...) {
-		try
-		{
-			logFatal("Unknown exception");
-		}
-		catch (...)
-		{
-		}
-		code = 1;
-	}
-
-	try
-	{
-		shutdown_application();
-	}
-	catch (...)
-	{
-
-	}
-
-	return code;
-}
-               
 static int char_is_not_filesafe(int c)
 {
     return (c != ' ' && !std::isalnum(c));
 }
 
-static void initialize_application(void)
+void initialize_application(void)
 {
 #if defined(__WIN32__)
 	if (LoadLibraryW(L"exchndl.dll")) shell_options.debug = true;
@@ -700,7 +612,7 @@ short get_level_number_from_user(void)
 }
 
 const uint32 TICKS_BETWEEN_EVENT_POLL = 16; // 60 Hz
-static void main_event_loop(void)
+void main_event_loop(void)
 {
 	uint32 last_event_poll = 0;
 	short game_state;
@@ -1396,7 +1308,7 @@ static void process_event(const SDL_Event &event)
 	case SDL_WINDOWEVENT:
 		switch (event.window.event) {
 			case SDL_WINDOWEVENT_FOCUS_LOST:
-				if (get_game_state() == _game_in_progress && get_keyboard_controller_status() && !Movie::instance()->IsRecording()) {
+				if (get_game_state() == _game_in_progress && get_keyboard_controller_status() && !Movie::instance()->IsRecording() && shell_options.replay_directory.empty()) {
 					darken_world_window();
 					set_keyboard_controller_status(false);
 					show_cursor();

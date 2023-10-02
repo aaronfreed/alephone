@@ -4,6 +4,8 @@ Aleph One is the open source continuation of Bungie™’s _Marathon® 2_ and _M
 
 Aleph One is available under the terms of the [GNU General Public License (GPL 3)](http://www.gnu.org/licenses/gpl-3.0.html)
 
+[![](https://dcbadge.vercel.app/api/server/NvF3pdV)](https://discord.gg/NvF3pdV)
+
 # Download
 
 To download ready-to-run versions of all three _Marathon_ games for macOS,
@@ -60,7 +62,7 @@ You should now be able to build Aleph One using the `VisualStudio\AlephOne.sln` 
 
 ## Linux/FreeBSD/other
 
-Linux/FreeBSD/other builds are built using autoconf. If you downloaded a source tarball, the configure system is already set up for you. If you cloned from git, you first need to set up the configure system. Install autoconf and autoconf-archive from your distro package manager, then:
+Linux/FreeBSD/other builds are built using autoconf. If you downloaded a source tarball, the configure system is already set up for you. If you cloned from git, you first need to set up the configure system. Install `autoconf` and `autoconf-archive` from your distro package manager, then:
 
     autoreconf -i
 
@@ -92,11 +94,7 @@ Then, install the following packages.
 
     sudo dnf install boost-devel curl-devel ffmpeg-devel gcc-c++ \
       libpng-devel SDL2-devel SDL2_ttf-devel SDL2_image-devel SDL2_net-devel \
-      zziplib-devel miniupnpc-devel openal-soft-devel
-
-As an alternative to using FFmpeg (which requires the RPM Fusion Repository), you can install alternative libraries:
-
-    sudo dnf install libsndfile-devel libvorbis-devel
+      zziplib-devel miniupnpc-devel openal-soft-devel libsndfile-devel
 
 If you don't compile with FFmpeg support, you won't be able to use WebM export in Aleph One.
 
@@ -107,8 +105,8 @@ Run this command to install the necessary prerequisites for building Aleph One:
     sudo apt install build-essential libboost-all-dev libsdl2-dev \
       libsdl2-image-dev libsdl2-net-dev libsdl2-ttf-dev \
       libzzip-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
-      libpng-dev libcurl4-gnutls-dev libminiupnpc-dev libopenal-dev
-	  
+      libpng-dev libcurl4-gnutls-dev libminiupnpc-dev libopenal-dev libsndfile1-dev
+
 ### Compile
 
 First, run the configure script:

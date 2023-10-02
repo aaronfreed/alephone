@@ -347,7 +347,6 @@ void allocate_map_memory(
 	
 	static_world= new static_data;
 	dynamic_world= new dynamic_data;
-	assert(static_world&&dynamic_world);
 	obj_clear(*static_world);
 	obj_clear(*dynamic_world);
 
@@ -2279,8 +2278,8 @@ bool line_is_obstructed(
 	return obstructed;
 }
 
-#define MAXIMUM_GARBAGE_OBJECTS_PER_MAP 256
-#define MAXIMUM_GARBAGE_OBJECTS_PER_POLYGON 10
+#define MAXIMUM_GARBAGE_OBJECTS_PER_MAP (get_dynamic_limit(_dynamic_limit_garbage))
+#define MAXIMUM_GARBAGE_OBJECTS_PER_POLYGON (get_dynamic_limit(_dynamic_limit_garbage_per_polygon))
 
 void turn_object_to_shit( /* garbage that is, garbage */
 	short garbage_object_index)
@@ -2303,7 +2302,7 @@ void turn_object_to_shit( /* garbage that is, garbage */
 		}
 	}
 	
-	if (garbage_objects_in_polygon> (graphics_preferences->double_corpse_limit ? MAXIMUM_GARBAGE_OBJECTS_PER_POLYGON * 2 : MAXIMUM_GARBAGE_OBJECTS_PER_POLYGON))
+	if (garbage_objects_in_polygon>MAXIMUM_GARBAGE_OBJECTS_PER_POLYGON)
 	{
 		/* there are too many garbage objects in this polygon, remove the last (oldest?) one in
 			the linked list */
@@ -2314,7 +2313,7 @@ void turn_object_to_shit( /* garbage that is, garbage */
 		/* see if we have overflowed the maximum allowable garbage objects per map; if we have then
 			remove an existing piece of shit to make room for the new one (this sort of removal
 			could be really obvious... but who pays attention to dead bodies anyway?) */
-	  if (dynamic_world->garbage_object_count>= (graphics_preferences->double_corpse_limit? MAXIMUM_GARBAGE_OBJECTS_PER_MAP * 2 : MAXIMUM_GARBAGE_OBJECTS_PER_MAP))
+	  if (dynamic_world->garbage_object_count>=MAXIMUM_GARBAGE_OBJECTS_PER_MAP)
 	    {
 			/* find a garbage object to remove, and do so (we’re certain that many exist) */
 			for (object_index= garbage_object_index, object= garbage_object;
@@ -2470,17 +2469,32 @@ bool line_has_variable_height(
 
 /* ---------- sound code */
 
+world_location3d* get_object_sound_location(short object_index) {
+
+	struct object_data* object = get_object_data(object_index);
+
+	switch (GET_OBJECT_OWNER(object)) {
+	case _object_is_monster:
+		return (world_location3d*)&get_monster_data(object->permutation)->sound_location;
+	case _object_is_effect:
+	{
+		auto object_owner_index = get_effect_data(object->permutation)->data;
+		auto object_owner = GetMemberWithBounds(objects, object_owner_index, MAXIMUM_OBJECTS_PER_MAP);
+		if (object_owner_index != NONE && object_owner && SLOT_IS_USED(object_owner)) return get_object_sound_location(object_owner_index);
+	}
+	[[fallthrough]];
+	default:
+		return (world_location3d*)&object->location;
+	}
+}
+
 void play_object_sound(
 	short object_index,
 	short sound_code,
 	bool local_sound)
 {
 	struct object_data *object= get_object_data(object_index);
-	world_location3d *location= GET_OBJECT_OWNER(object)==_object_is_monster ?
-		(world_location3d *) &get_monster_data(object->permutation)->sound_location : 
-		(world_location3d *) &object->location;
-
-	SoundManager::instance()->PlaySound(sound_code, location, local_sound ? NONE : object_index, local_sound, object->sound_pitch);
+	SoundManager::instance()->PlaySound(sound_code, get_object_sound_location(object_index), local_sound ? NONE : object_index, local_sound, object->sound_pitch);
 }
 
 void play_polygon_sound(

@@ -24,6 +24,8 @@
 
 */
 
+#include <memory>
+
 #include "cseries.h"
 #include "FileHandler.h"
 #include "SoundManagerEnums.h"
@@ -45,7 +47,7 @@ public:
 	StreamDecoder() { }
 	virtual ~StreamDecoder() { }
 
-	static StreamDecoder* Get(FileSpecifier &File); // can return 0
+	static std::unique_ptr<StreamDecoder> Get(FileSpecifier &File); // can return 0
 };
 
 class Decoder : public StreamDecoder

@@ -306,6 +306,11 @@ int Screen::width()
 	return MainScreenLogicalWidth();
 }
 
+float Screen::pixel_scale()
+{
+	return MainScreenPixelScale();
+}
+
 int Screen::window_height()
 {
 	return std::max(static_cast<short>(480), screen_mode.height);
@@ -2196,7 +2201,7 @@ int MainScreenPixelWidth()
 		SDL_GL_GetDrawableSize(main_screen, &w, &dummy);
 	else
 #endif
-		SDL_GetRendererOutputSize(main_render, &w, NULL);
+		SDL_GetRendererOutputSize(main_render, &w, &dummy);
 	return w;
 }
 int MainScreenPixelHeight()
@@ -2208,7 +2213,7 @@ int MainScreenPixelHeight()
 		SDL_GL_GetDrawableSize(main_screen, &dummy, &h);
 	else
 #endif
-		SDL_GetRendererOutputSize(main_render, NULL, &h);
+		SDL_GetRendererOutputSize(main_render, &dummy, &h);
 	return h;
 }
 float MainScreenPixelScale()

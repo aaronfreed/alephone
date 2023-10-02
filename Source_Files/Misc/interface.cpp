@@ -373,7 +373,7 @@ void initialize_game_state(
 	  alert_user(expand_app_variables("Insecure Lua has been manually enabled. Malicious Lua scripts can use Insecure Lua to take over your computer. Unless you specifically trust every single Lua script that will be running, you should quit $appName$ IMMEDIATELY.").c_str());
 	}
 
-	if (!shell_options.editor)
+	if (!shell_options.editor && shell_options.replay_directory.empty())
 	{
 		if (shell_options.skip_intro)
 		{
@@ -855,7 +855,6 @@ bool join_networked_resume_game()
         
         if(success)
 	{
-		Music::instance()->PreloadLevelMusic();
 		start_game(_network_player, false /*changing level?*/);
 	}
         
@@ -981,7 +980,6 @@ bool load_and_start_game(FileSpecifier& File)
 				success = make_restored_game_relevant(userWantsMultiplayer, theStarts, theNumberOfStarts);
 				if (success)
 				{
-					Music::instance()->PreloadLevelMusic();
 					start_game(userWantsMultiplayer ? _network_player : _single_player, false);
 				}
 			}
@@ -1927,7 +1925,11 @@ static void transfer_to_new_level(
 		if (level_number == (shapes_file_is_m1() ? 100 : EPILOGUE_LEVEL_NUMBER)) {
 			finish_game(false);
 			show_cursor(); // for some reason, cursor stays hidden otherwise
-			set_game_state(_begin_display_of_epilogue);
+
+			if (shell_options.replay_directory.empty()) {
+				set_game_state(_begin_display_of_epilogue);
+			}
+
 			force_game_state_change();
 			return;
 		}
@@ -2035,8 +2037,13 @@ static bool begin_game(
 						
 						bool prompt_to_export = false;
 #ifndef MAC_APP_STORE
+						
 						SDL_Keymod m = SDL_GetModState();
+#if defined(__APPLE__) && defined(__MACH__)
+						if (m & KMOD_ALT) prompt_to_export = true;
+#else
 						if ((m & KMOD_ALT) || (m & KMOD_GUI)) prompt_to_export = true;
+#endif
 #endif
 						
 						success= find_replay_to_use(cheat, ReplayFile);
@@ -2353,7 +2360,7 @@ static void finish_game(
 
 	/* Fade out! (Pray) */ // should be interface_color_table for valkyrie, but doesn't work.
 	Music::instance()->ClearLevelMusic();
-	Music::instance()->FadeOut(MACHINE_TICKS_PER_SECOND / 2);
+	Music::instance()->Fade(0, MACHINE_TICKS_PER_SECOND / 2);
 	full_fade(_cinematic_fade_out, interface_color_table);
 	paint_window_black();
 	full_fade(_end_cinematic_fade_out, interface_color_table);
@@ -2385,24 +2392,33 @@ static void finish_game(
 	} 
 	else
 #endif // !defined(DISABLE_NETWORKING)
-	if (game_state.user == _replay && !(dynamic_world->game_information.game_type == _game_of_kill_monsters && dynamic_world->player_count == 1))
-	{
-		game_state.state = _displaying_network_game_dialogs;
 
-		force_system_colors();
-		display_net_game_stats();
+	if (game_state.user == _replay)
+	{
+		if (!shell_options.replay_directory.empty())
+		{
+			game_state.state = _quit_game;
+			return_to_main_menu = false;
+		}
+		else if (!(dynamic_world->game_information.game_type == _game_of_kill_monsters && dynamic_world->player_count == 1))
+		{
+			game_state.state = _displaying_network_game_dialogs;
+
+			force_system_colors();
+			display_net_game_stats();
+		}
 	}
 	
 	set_local_player_index(NONE);
 	set_current_player_index(NONE);
 	
 	load_environment_from_preferences();
-	if (game_state.user == _replay || game_state.user == _demo)
+	if ((game_state.user == _replay && shell_options.replay_directory.empty()) || game_state.user == _demo)
 	{
 		Plugins::instance()->set_mode(Plugins::kMode_Menu);
 		load_film_profile(FILM_PROFILE_DEFAULT);
 	}
-	if(return_to_main_menu) display_main_menu();
+	if (return_to_main_menu) display_main_menu();
 }
 
 static void clean_up_after_failed_game(bool inNetgame, bool inRecording, bool inFullCleanup)
@@ -2757,7 +2773,7 @@ static void try_and_display_chapter_screen(
 	bool text_block,
 	bool epilogue_screen)
 {
-	if (Movie::instance()->IsRecording())
+	if (Movie::instance()->IsRecording() || !shell_options.replay_directory.empty())
 		return;
 	
 	short pict_resource_number = get_screen_data(_display_chapter_heading)->screen_base + level;
@@ -2902,7 +2918,7 @@ void interface_fade_out(
 		hide_cursor();
 
 		if(fade_music) 
-			Music::instance()->FadeOut(MACHINE_TICKS_PER_SECOND/2);
+			Music::instance()->Fade(0, MACHINE_TICKS_PER_SECOND/2);
 
 		full_fade(_cinematic_fade_out, current_picture_clut);
 		
@@ -3069,7 +3085,7 @@ extern bool option_nosound;
 
 void show_movie(short index)
 {
-	if (Movie::instance()->IsRecording())
+	if (Movie::instance()->IsRecording() || !shell_options.replay_directory.empty())
 		return;
 	
 #if defined(HAVE_FFMPEG) || defined(HAVE_SMPEG)

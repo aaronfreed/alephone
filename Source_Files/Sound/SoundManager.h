@@ -67,7 +67,7 @@ public:
 	void UnloadSound(short sound);
 	void UnloadAllSounds();
 
-	void PlaySound(short sound_index, world_location3d *source, short identifier, bool local, _fixed pitch = _normal_frequency, bool loop = false);
+	std::shared_ptr<AudioPlayer> PlaySound(short sound_index, world_location3d *source, short identifier, bool local, _fixed pitch = _normal_frequency, bool loop = false);
 	void PlayLocalSound(short sound_index, _fixed pitch = _normal_frequency) { PlaySound(sound_index, NULL, NONE, true, pitch); }
 	void DirectPlaySound(short sound_index, angle direction, short volume, _fixed pitch);
 
@@ -91,6 +91,8 @@ public:
 
 	// random sounds
 	short RandomSoundIndexToSoundIndex(short random_sound_index);
+
+	static int GetCurrentAudioTick();
 
 	struct Parameters
 	{

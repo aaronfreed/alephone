@@ -13,8 +13,6 @@
 
 #include <math.h>
 
-#define LOAD_PROC(T, x)  ((x) = (T)alGetProcAddress(#x))
-
 constexpr float abortAmplitudeThreshold = MAXIMUM_SOUND_VOLUME / 6.f / 256;
 constexpr float angleConvert = 360 / float(FULL_CIRCLE);
 constexpr float degreToRadian = M_PI / 180.f;
@@ -29,7 +27,7 @@ extern "C"
 }
 #endif
 
-const std::unordered_map<ALCint, AVSampleFormat> mapping_openal_ffmpeg = {
+const inline std::unordered_map<ALCint, AVSampleFormat> mapping_openal_ffmpeg = {
 	{ALC_FLOAT_SOFT, AV_SAMPLE_FMT_FLT},
 	{ALC_INT_SOFT, AV_SAMPLE_FMT_S32},
 	{ALC_SHORT_SOFT, AV_SAMPLE_FMT_S16},
@@ -51,21 +49,21 @@ struct AudioParameters {
 class OpenALManager {
 public:
 	static OpenALManager* Get() { return instance; }
-	static bool Init(AudioParameters parameters);
+	static bool Init(const AudioParameters& parameters);
 	static float From_db(float db, bool music = false) { return db <= (SoundManager::MINIMUM_VOLUME_DB / (music ? 2 : 1)) ? 0 : std::pow(10.f, db / 20.f); }
 	static void Shutdown();
 	void Start();
 	void Stop();
 	void StopAllPlayers();
-	std::shared_ptr<SoundPlayer> PlaySound(const Sound& sound, SoundParameters parameters);
-	std::shared_ptr<SoundPlayer> PlaySound(LoadedResource& rsrc, SoundParameters parameters);
-	std::shared_ptr<MusicPlayer> PlayMusic(StreamDecoder* decoder);
+	std::shared_ptr<SoundPlayer> PlaySound(const Sound& sound, const SoundParameters& parameters);
+	std::shared_ptr<SoundPlayer> PlaySound(LoadedResource& rsrc, const SoundParameters& parameters);
+	std::shared_ptr<MusicPlayer> PlayMusic(std::shared_ptr<StreamDecoder> decoder, MusicParameters parameters);
 	std::shared_ptr<StreamPlayer> PlayStream(CallBackStreamPlayer callback, int length, int rate, bool stereo, AudioFormat audioFormat);
 	void StopSound(short sound_identifier, short source_identifier);
-	std::unique_ptr<AudioPlayer::AudioSource> PickAvailableSource(float priority);
+	std::unique_ptr<AudioPlayer::AudioSource> PickAvailableSource(const AudioPlayer& audioPlayer);
 	std::shared_ptr<SoundPlayer> GetSoundPlayer(short identifier, short source_identifier, bool sound_identifier_only = false) const;
 	void UpdateListener(world_location3d listener) { listener_location.Set(listener); }
-	const world_location3d GetListener() const { return listener_location.Get(); }
+	const world_location3d& GetListener() const { return listener_location.Get(); }
 	void SetMasterVolume(float volume);
 	float GetMasterVolume() const { return master_volume.load(); }
 	void ToggleDeviceMode(bool recording_device);
@@ -76,19 +74,22 @@ public:
 	bool IsBalanceRewindSound() const { return audio_parameters.balance_rewind; }
 	void CleanInactivePlayers();
 	ALCint GetRenderingFormat() const { return rendering_format; }
+	ALuint GetLowPassFilter(float highFrequencyGain) const;
 	const std::vector<std::shared_ptr<AudioPlayer>>& GetAudioPlayers() const { return audio_players_local; }
 private:
 	static OpenALManager* instance;
 	ALCdevice* p_ALCDevice = nullptr;
 	ALCcontext* p_ALCContext = nullptr;
-	OpenALManager(AudioParameters parameters);
+	OpenALManager(const AudioParameters& parameters);
 	~OpenALManager();
 	std::atomic<float> master_volume;
 	bool process_audio_active = false;
 	AtomicStructure<world_location3d> listener_location = {};
+	void UpdateParameters(const AudioParameters& parameters);
 	void UpdateListener();
 	void CleanEverything();
 	bool GenerateSources();
+	bool GenerateEffects();
 	bool OpenDevice();
 	bool CloseDevice();
 	void ProcessAudioQueue();
@@ -106,16 +107,27 @@ private:
 	static LPALCISRENDERFORMATSUPPORTEDSOFT alcIsRenderFormatSupportedSOFT;
 	static LPALCRENDERSAMPLESSOFT alcRenderSamplesSOFT;
 
+	static LPALGETSTRINGISOFT alGetStringiSOFT;
+
+	/* Filter object functions */
+	static LPALGENFILTERS alGenFilters;
+	static LPALDELETEFILTERS alDeleteFilters;
+	static LPALFILTERI alFilteri;
+	static LPALFILTERF alFilterf;
+
 	static void MixerCallback(void* usr, uint8* stream, int len);
-	SDL_AudioSpec obtained;
+	SDL_AudioSpec sdl_audio_specs_obtained;
 	AudioParameters audio_parameters;
 	ALCint rendering_format = 0;
+	ALuint low_pass_filter;
+
+	static constexpr int max_sounds_for_source = 3;
 
 	/* format type we supports for mixing / rendering
 	* those are used from the first to the last of the list
 	  and we stop when our device support the corresponding format 
 	  Short is first, because there is no real purpose to use other format now */
-	const std::vector<ALCint> formatType = {
+	const std::vector<ALCint> format_type = {
 		ALC_SHORT_SOFT,
 		ALC_FLOAT_SOFT,
 		ALC_INT_SOFT,

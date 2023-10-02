@@ -30,6 +30,7 @@ SOUND.C
 #include "InfoTree.h"
 #include "OpenALManager.h"
 #include "shell_options.h"
+#include "Movie.h"
 
 #undef SLOT_IS_USED
 #undef SLOT_IS_FREE
@@ -181,7 +182,7 @@ void SoundManager::SetParameters(const Parameters& parameters)
 		this->parameters.Verify();
 
 		// If it was initially on, turn the sound manager back on
-		if (initial_state && parameters.volume_db > MINIMUM_VOLUME_DB)
+		if (initial_state)
 			SetStatus(true);
 	}
 
@@ -257,11 +258,11 @@ void SoundManager::TestVolume(float db, short sound_index)
 {
 	if (active)
 	{
-		if (db > MINIMUM_VOLUME_DB)
-		{
-			OpenALManager::Get()->SetMasterVolume(OpenALManager::From_db(db));
-			PlaySound(sound_index, 0, NONE, true);
-		}
+		OpenALManager::Get()->SetMasterVolume(OpenALManager::From_db(db));
+		auto sound = PlaySound(sound_index, 0, NONE, true);
+		while (sound && sound->IsActive())
+		yield();
+		OpenALManager::Get()->SetMasterVolume(OpenALManager::From_db(parameters.volume_db));
 	}	
 }
 
@@ -353,7 +354,7 @@ void SoundManager::UnloadAllSounds()
 	}
 }
 
-void SoundManager::PlaySound(short sound_index, 
+std::shared_ptr<AudioPlayer> SoundManager::PlaySound(short sound_index, 
 			     world_location3d *source,
 			     short identifier, // NONE is no identifer and the sound is immediately orphaned
 				 bool local,
@@ -362,7 +363,7 @@ void SoundManager::PlaySound(short sound_index,
 {
 	/* don’t do anything if we’re not initialized or active, or our sound_code is NONE,
 		or our volume is zero */
-	if (sound_index!=NONE && active && parameters.volume_db > MINIMUM_VOLUME_DB)
+	if (sound_index!=NONE && active && OpenALManager::Get()->GetMasterVolume() > 0)
 	{
 		SoundVolumes variables;
 		
@@ -378,7 +379,7 @@ void SoundManager::PlaySound(short sound_index,
 			if (source) {
 
 				parameters.source_location3d = *source;
-				parameters.dynamic_source_location3d = _dynamic_tracking_flag && identifier != NONE ? source : nullptr;
+				parameters.dynamic_source_location3d = (this->parameters.flags & _dynamic_tracking_flag) && identifier != NONE ? source : nullptr;
 
 				if (this->parameters.flags & _3d_sounds_flag) {
 					parameters.obstruction_flags = GetSoundObstructionFlags(sound_index, source);
@@ -393,9 +394,11 @@ void SoundManager::PlaySound(short sound_index,
 				}
 				
 			}
-			BufferSound(parameters);
+			return BufferSound(parameters);
 		}
 	}
+
+	return nullptr;
 }
 				
 void SoundManager::DirectPlaySound(short sound_index, angle direction, short volume, _fixed pitch)
@@ -437,6 +440,10 @@ void SoundManager::StopAllSounds() {
 	 if (manager) manager->StopAllPlayers();
 }
 
+int SoundManager::GetCurrentAudioTick() {
+	return Movie::instance()->IsRecording() ? Movie::instance()->GetCurrentAudioTimeStamp() : machine_tick_count();
+}
+
 //if we want to manage things with our sound players, it's here
 void SoundManager::ManagePlayers() {
 	OpenALManager::Get()->CleanInactivePlayers();
@@ -447,7 +454,7 @@ void SoundManager::ManagePlayers() {
 		if (soundPlayer) {
 			auto parameters = soundPlayer->GetParameters();
 			if (parameters.loop && SoundPlayer::Simulate(parameters) <= 0) {
-				soundPlayer->AskStop();
+				soundPlayer->AskSoftStop();
 			}
 			else {
 
@@ -778,7 +785,7 @@ void SoundManager::SetStatus(bool active)
 					parameters.rate,
 					parameters.samples,
                     static_cast<bool>(parameters.flags & _stereo_flag),
-					!(parameters.flags & _zero_restart_delay),
+					!(parameters.flags & _lower_restart_delay),
                     static_cast<bool>(parameters.flags & _hrtf_flag),
                     static_cast<bool>(parameters.flags & _3d_sounds_flag),
 					OpenALManager::From_db(parameters.volume_db)
@@ -1022,7 +1029,7 @@ void SoundManager::UpdateAmbientSoundSources()
 		}
 
 		if (!found) {
-			soundPlayer->AskStop();
+			soundPlayer->AskSoftStop();
 		}
 	}
 

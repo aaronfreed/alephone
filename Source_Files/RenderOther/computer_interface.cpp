@@ -515,7 +515,6 @@ void initialize_terminal_manager(
 	void)
 {
 	player_terminals= new player_terminal_data[MAXIMUM_NUMBER_OF_PLAYERS];
-	assert(player_terminals);
 	objlist_clear(player_terminals, MAXIMUM_NUMBER_OF_PLAYERS);
 
 /*
@@ -1210,7 +1209,7 @@ static void display_picture(
 
 		int pict_header_width = get_pict_header_width(PictRsrc);
 		bool cinemascopeHack = false;
-		if (bounds.right != pict_header_width)
+		if (bounds.right != pict_header_width && bounds.right == 614)
 		{
 			cinemascopeHack = true;
 			bounds.right = pict_header_width;
