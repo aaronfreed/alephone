@@ -11,7 +11,7 @@ jobs:
         submodules: true
         
     - name: Install Tools
-      run: brew install nasm automake
+      run: brew install nasm
       
     - name: Vcpkg Integration
       run: $VCPKG_INSTALLATION_ROOT/vcpkg integrate install
@@ -31,8 +31,8 @@ jobs:
         path: vcpkg/installed-arm64-osx
         key: ${{runner.os}}-installed-arm64-osx-${{env.vcpkg_current_hash}}-${{hashFiles('**/vcpkg.json')}}
         
-    - name: Switch to Xcode 12.5.1
-      run: sudo xcode-select --switch /Applications/Xcode_12.5.1.app
+    - name: Switch to Xcode 13.4.1
+      run: sudo xcode-select --switch /Applications/Xcode_13.4.1.app
       
     - name: Install Dependencies
       run: cd vcpkg && ./install-x64-osx.sh && ./install-arm-osx.sh
