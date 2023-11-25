@@ -1722,7 +1722,7 @@ static const char *action_name[NUM_KEYS] = {
 	"Glance Left", "Glance Right", "Look Up", "Look Down", "Recenter View",
 	"Previous Weapon", "Next Weapon", "Trigger", "2nd Trigger",
 	"Turn -> Sidestep", "Run/Swim", "Move -> Look",
-	"Action", "Auto Map", "Microphone"
+	"Action", "Auto Map", "Aux Trigger"
 };
 
 static key_binding_map default_key_bindings = {
@@ -2529,19 +2529,57 @@ static void controls_dialog(void *arg)
 	}
 	move->add(move_table, true);
 	move->add(new w_spacer(), true);
-	
-	table_placer *move_options = new table_placer(2, get_theme_space(ITEM_WIDGET), true);
+
+	table_placer* move_options = new table_placer(3, get_theme_space(ITEM_WIDGET));
 	move_options->col_flags(0, placeable::kAlignRight);
 
-	w_toggle *always_run_w = new w_toggle(input_preferences->modifiers & _inputmod_interchange_run_walk);
-	move_options->dual_add(always_run_w->label("Always Run"), d);
-	move_options->dual_add(always_run_w, d);
-	
-	w_toggle *always_swim_w = new w_toggle(TEST_FLAG(input_preferences->modifiers, _inputmod_interchange_swim_sink));
-	move_options->dual_add(always_swim_w->label("Always Swim"), d);
-	move_options->dual_add(always_swim_w, d);
-	
+	static const char* run_option_labels[] = {
+		"Hold to Run",
+		"Hold to Walk",
+		"Tap to Toggle",
+		nullptr
+	};
+
+	static const char* swim_option_labels[] = {
+		"Hold to Swim",
+		"Hold to Sink",
+		nullptr
+	};
+
+	static const char* swim_toggle_labels[] = {
+		"",
+		"",
+		"Hold to Swim", // hack, otherwise width changes
+		nullptr
+	};
+
+	w_select *run_w = new w_select(input_preferences->modifiers & _inputmod_run_key_toggle ? 2 : input_preferences->modifiers & _inputmod_interchange_swim_sink ? 1 : 0, run_option_labels);
+	move_options->dual_add(run_w->label("Run/Swim Behavior"), d);
+	move_options->dual_add(run_w, d);
+
+	w_select *swim_w = new w_select(input_preferences->modifiers & _inputmod_interchange_swim_sink ? 1 : 0, swim_option_labels);
+	move_options->dual_add(swim_w, d);
+
+	const auto update_swim_w = [&](w_select*) {
+		if (run_w->get_selection() == 2)
+		{
+			swim_w->set_labels(swim_toggle_labels);
+			swim_w->set_enabled(false);
+		}
+		else
+		{
+			swim_w->set_labels(swim_option_labels);
+			swim_w->set_enabled(true);
+		}
+	};
+
+	update_swim_w(swim_w);
+	run_w->set_selection_changed_callback(update_swim_w);
+
 	move->add(move_options, true);
+	move->add(new w_spacer(), true);
+	move->dual_add(new w_static_text("Double-tap Run/Walk to activate control panels and doors"), d);
+	move->dual_add(new w_static_text("Double-tap Move -> Look to center vertical view"), d);
 
 	vertical_placer *look = new vertical_placer();
 	table_placer *look_table = new table_placer(4, get_theme_space(ITEM_WIDGET), true);
@@ -2861,8 +2899,17 @@ static void controls_dialog(void *arg)
 		bool changed = false;
 		
 		uint16 flags = input_preferences->modifiers & (_inputmod_use_button_sounds|_inputmod_invert_mouse);
-		if (always_run_w->get_selection()) flags |= _inputmod_interchange_run_walk;
-		if (always_swim_w->get_selection()) flags |= _inputmod_interchange_swim_sink;
+
+		if (run_w->get_selection() == 2)
+		{
+			flags |= _inputmod_run_key_toggle;
+		}
+		else
+		{
+			if (run_w->get_selection()) flags |= _inputmod_interchange_run_walk;
+			if (swim_w->get_selection()) flags |= _inputmod_interchange_swim_sink;
+		}
+
 		if (!(weapon_w->get_selection())) flags |= _inputmod_dont_switch_to_new_weapon;
 		if (!(auto_recenter_w->get_selection())) flags |= _inputmod_dont_auto_recenter;
 		

@@ -1117,10 +1117,10 @@
 	  <function name="fade" version="git">
 		<description>fades the music</description>
 		<argument name="volume"><type>number</type></argument>
-		<argument name="duration" required="false"><type>number</type></argument>
+		<argument name="duration" required="false"><type>seconds</type></argument>
 		<argument name="stop_after_fade" required="false"><type>boolean</type></argument>
 		<note>it will fade in until volume is reached. volume is decimal [0 - 1]</note>
-		<note>duration unit is ms and is 1000 if not specified</note>
+		<note>duration unit is seconds and is 1 if not specified</note>
 		<note>stop_after_fade is disabled by default, if set to true if the volume reaches 0 while fading the music will automatically stop</note>
 	  </function>
 	  <variable name="volume" version="git">
@@ -1314,6 +1314,10 @@
 		  <type>boolean</type>
 		  <note>latched</note>
 		</variable>
+		<variable name="aux_trigger" version="git">
+		  <description>formerly microphone button; now dedicated to Lua scripts</description>
+		  <type>boolean</type>
+		</variable>
 		<variable name="cycle_weapons_forward">
 		  <description>switches to next weapon</description>
 		  <type>boolean</type>
@@ -1327,11 +1331,6 @@
 		<variable name="left_trigger">
 		  <description>fires primary trigger</description>
 		  <type>boolean</type>
-		</variable>
-		<variable name="microphone_button">
-		  <description>activates the net mic</description>
-		  <type>boolean</type>
-		  <note>can not be set to true; can be set to false</note>
 		</variable>
 		<variable name="right_trigger">
 		  <description>fires secondary trigger</description>
