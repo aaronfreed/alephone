@@ -28,8 +28,6 @@ void AudioPlayer::ResetSource() {
 	for (auto& buffer : audio_source->buffers) {
 		buffer.second = false;
 	}
-
-	SetUpALSourceInit();
 }
 
 //Get back the source of the player
@@ -53,6 +51,13 @@ void AudioPlayer::FillBuffers() {
 
 	UnqueueBuffers(); //First we unqueue buffers that can be
 
+	//OpenAL does not support queueing multiple buffers with different format for a same source so we wait
+	if (queued_format != format || queued_rate != rate) {
+		ALint nbBuffersQueued;
+		alGetSourcei(audio_source->source_id, AL_BUFFERS_QUEUED, &nbBuffersQueued);
+		if (nbBuffersQueued > 0) return;
+	}
+
 	for (auto& buffer : audio_source->buffers) { //now we process our buffers that are ready
 
 		if (buffer.second) continue;
@@ -70,6 +75,9 @@ void AudioPlayer::FillBuffers() {
 		alBufferData(buffer.first, format, data.data(), bufferOffset, rate);
 		alSourceQueueBuffers(audio_source->source_id, 1, &buffer.first);
 		buffer.second = true;
+
+		queued_rate = rate;
+		queued_format = format;
 	}
 }
 
@@ -79,17 +87,19 @@ void AudioPlayer::Rewind() {
 	rewind_signal = false;
 }
 
+bool AudioPlayer::IsPlaying() const {
+	if (!audio_source) return false;
+	ALint state;
+	alGetSourcei(audio_source->source_id, AL_SOURCE_STATE, &state);
+	return state == AL_PLAYING || state == AL_PAUSED; //underrun source is considered as playing
+}
+
 bool AudioPlayer::Play() {
 
 	FillBuffers();
-	ALint state;
 
-	//Get relevant source info 
-	alGetSourcei(audio_source->source_id, AL_SOURCE_STATE, &state);
+	if (!IsPlaying()) {
 
-	//Make sure the source hasn't underrun 
-	if (state != AL_PLAYING && state != AL_PAUSED)
-	{
 		ALint queued;
 
 		//If no buffers are queued, playback is finished 
@@ -99,16 +109,15 @@ bool AudioPlayer::Play() {
 		alSourcePlay(audio_source->source_id);
 	}
 
-	return true; //still has to play some data
+	return alGetError() == AL_NO_ERROR; //still has to play some data
 }
 
 bool AudioPlayer::Update() {
 	bool needsUpdate = LoadParametersUpdates() || !is_sync_with_al_parameters;
 	if (rewind_signal) Rewind();
 	if (!needsUpdate) return true;
-	is_sync_with_al_parameters = true;
 	auto updateStatus = SetUpALSourceIdle();
-	is_sync_with_al_parameters.store(is_sync_with_al_parameters && updateStatus.second);
+	is_sync_with_al_parameters = updateStatus.second;
 	return updateStatus.first;
 }
 

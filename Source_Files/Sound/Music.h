@@ -61,13 +61,12 @@ public:
 	float GetVolume(int index) const { return music_slots[index].GetVolume(); }
 	void SetVolume(int index, float volume) { music_slots[index].SetVolume(volume); }
 	void StopLevelMusic() { music_slots[MusicSlot::Level].Close(); }
-	void ClearLevelMusic() { playlist.clear(); marathon_1_song_index = NONE; }
-	void PushBackLevelMusic(FileSpecifier& file) { playlist.push_back(file); }
-	bool IsLevelMusicActive() { return (!playlist.empty()); }
+	void ClearLevelMusic();
+	void PushBackLevelMusic(const FileSpecifier& file);
 	void LevelMusicRandom(bool fRandom) { random_order = fRandom; }
 	void SeedLevelMusic();
 	void SetClassicLevelMusic(short song_index);
-	bool HasClassicLevelMusic() { return marathon_1_song_index >= 0; }
+	bool HasClassicLevelMusic() const { return marathon_1_song_index >= 0; }
 private:
 	class Slot {
 	private:
@@ -95,7 +94,7 @@ private:
 		void StopFade() { music_fade_start = 0; }
 		void SetVolume(float volume);
 		float GetVolume() const { return parameters.volume; }
-		std::pair<bool, float> ComputeFadingVolume();
+		std::pair<bool, float> ComputeFadingVolume() const;
 	};
 
 	std::vector<Slot> music_slots;

@@ -38,6 +38,8 @@ May 3, 2003 (Br'fin (Jeremy Parsons))
 #include "OGL_Subst_Texture_Def.h"
 #include "scottish_textures.h"
 
+#ifdef HAVE_OPENGL
+
 // Initialize the texture accounting
 void OGL_StartTextures();
 
@@ -186,7 +188,7 @@ class TextureManager
 	uint32 *GetOGLTexture(uint32 *ColorTable);
 	
 	// This one creates a fake landscape
-	uint32 *GetFakeLandscape();
+	uint32 *GetFakeLandscape() const;
 	
 	// This is for shrinking a texture
 	uint32 *Shrink(uint32 *Buffer);
@@ -359,5 +361,7 @@ struct OGL_TexturesStats {
 };
 
 extern OGL_TexturesStats gGLTxStats;
+
+#endif
 
 #endif

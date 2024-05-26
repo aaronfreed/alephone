@@ -935,8 +935,8 @@ static void change_screen_mode(int width, int height, int depth, bool nogl, bool
 								   sdl_width, sdl_height,
 								   flags);
 
-#ifdef HAVE_OPENGL
 	bool context_created = false;
+#ifdef HAVE_OPENGL
 	if (main_screen == NULL && !nogl && screen_mode.acceleration != _no_acceleration && Get_OGL_ConfigureData().Multisamples > 0) {
 		// retry with multisampling off
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
@@ -970,7 +970,7 @@ static void change_screen_mode(int width, int height, int depth, bool nogl, bool
 			SDL_GL_CreateContext(main_screen);
 			context_created = true;
 		}
-#ifdef __WIN32__
+#if defined (__WIN32__) && (HAVE_OPENGL)
 		glewInit();
 #endif
 		if (!OGL_CheckExtension("GL_ARB_vertex_shader") || !OGL_CheckExtension("GL_ARB_fragment_shader") || !OGL_CheckExtension("GL_ARB_shader_objects") || !OGL_CheckExtension("GL_ARB_shading_language_100"))
@@ -1234,6 +1234,7 @@ void toggle_fullscreen()
  */
 
 static bool clear_next_screen = false;
+static void darken_world_window(void);
 
 void update_world_view_camera()
 {
@@ -1242,7 +1243,7 @@ void update_world_view_camera()
 	world_view->maximum_depth_intensity = current_player->weapon_intensity;
 
 	world_view->origin = current_player->camera_location;
-	if (!graphics_preferences->screen_mode.camera_bob)
+	if (graphics_preferences->screen_mode.bobbing_type != BobbingType::camera_and_weapon)
 		world_view->origin.z -= current_player->step_height;
 	world_view->origin_polygon_index = current_player->camera_polygon_index;
 
@@ -1538,6 +1539,11 @@ void render_screen(short ticks_elapsed)
 			}
 		}
 
+		if (!get_keyboard_controller_status())
+		{
+			darken_world_window();
+		}
+
 		if (update_full_screen || Screen::instance()->lua_hud())
 		{
 			MainScreenUpdateRect(0, 0, 0, 0);
@@ -1552,7 +1558,14 @@ void render_screen(short ticks_elapsed)
 #ifdef HAVE_OPENGL
 	// Swap OpenGL double-buffers
 	if (screen_mode.acceleration != _no_acceleration)
+	{
+		if (!get_keyboard_controller_status())
+		{
+			darken_world_window();
+		}
+
 		OGL_SwapBuffers();
+	}
 #endif
 	
 	Movie::instance()->AddFrame(Movie::FRAME_NORMAL);
@@ -1939,7 +1952,7 @@ static inline void draw_pattern_rect(T *p, int pitch, uint32 pixel, const SDL_Re
 	}
 }
 
-void darken_world_window(void)
+static void darken_world_window(void)
 {
 	// Get world window bounds
 	SDL_Rect r = Screen::instance()->window_rect();
@@ -1979,7 +1992,7 @@ void darken_world_window(void)
 		glPopMatrix();
 		glPopAttrib();
 
-		MainScreenSwap();
+//		MainScreenSwap();
 		return;
 	}
 #endif

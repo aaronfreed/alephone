@@ -33,10 +33,7 @@
 #ifdef HAVE_OPENGL
 
 #include "Model3D.h"
-
-#ifdef HAVE_OPENGL
 #include "OGL_Headers.h"
-#endif
 
 /* Need Sgl* macros */
 #include "OGL_Setup.h"
@@ -718,7 +715,7 @@ bool Model3D::FindPositions_Neutral(bool UseModelTransform)
 		for (size_t k=0; k<NumVertices; k++, IP++, PP+=3)
 		{
 			size_t VSIndex = *IP;
-			if (VSIndex >= 0 && VSIndex < NumVtxSources)
+			if (VSIndex < NumVtxSources)
 			{
 				Model3D_VertexSource& VS = VtxSources[VSIndex];
 				TransformPoint(PP,VS.Position,TransformPos);
@@ -735,7 +732,7 @@ bool Model3D::FindPositions_Neutral(bool UseModelTransform)
 		for (size_t k=0; k<NumVertices; k++, IP++)
 		{
 			size_t VSIndex = *IP;
-			if (VSIndex >= 0 && VSIndex < NumVtxSources)
+			if (VSIndex < NumVtxSources)
 			{
 				Model3D_VertexSource& VS = VtxSources[VSIndex];
 				GLfloat *VP = VS.Position;

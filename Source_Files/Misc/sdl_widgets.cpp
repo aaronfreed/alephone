@@ -751,7 +751,7 @@ w_select::w_select(size_t s, const char **l) : widget(LABEL_WIDGET), labels(l), 
         if(labels) {
             while (labels[num_labels])
                     num_labels++;
-            if (selection >= num_labels || selection < 0)
+            if (selection >= num_labels)
                     selection = 0;
         }
 
@@ -1044,17 +1044,9 @@ w_player_color::w_player_color(int selection) : w_select(selection, NULL)
 void w_player_color::draw(SDL_Surface *s) const
 {
 	int y = rect.y + font->get_ascent();
-
-	// Selection
-	if (selection >= 0) {
-		uint32 pixel = get_dialog_player_color(selection);
-		SDL_Rect r = {rect.x, rect.y + 1, 48, rect.h - 2};
-		SDL_FillRect(s, &r, pixel);
-	} else {
-		int state = enabled ? (active ? ACTIVE_STATE : DEFAULT_STATE) : DISABLED_STATE;
-
-		draw_text(s, "<unknown>", rect.x, y, get_theme_color(ITEM_WIDGET, state), font, style);
-	}
+	uint32 pixel = get_dialog_player_color(selection);
+	SDL_Rect r = {rect.x, rect.y + 1, 48, rect.h - 2};
+	SDL_FillRect(s, &r, pixel);
 
 	// Cursor
 	if (active)	{
@@ -2246,12 +2238,12 @@ void w_list_base::set_top_item(size_t i)
  */
 
 w_levels::w_levels(const vector<entry_point> &items, dialog *d)
-	  : w_list<entry_point>(items, 400, 8, 0), parent(d), show_level_numbers(true) {}
+	: w_list<entry_point>(items, 400, 8, 0), parent(d), show_level_numbers(true), offset{1} {}
 
 // ZZZ: new constructor gives more control over widget's appearance.
 w_levels::w_levels(const vector<entry_point>& items, dialog* d, uint16 inWidth,
         size_t inNumLines, size_t inSelectedItem, bool in_show_level_numbers)
-	  : w_list<entry_point>(items, inWidth, inNumLines, inSelectedItem), parent(d), show_level_numbers(in_show_level_numbers) {}
+	: w_list<entry_point>(items, inWidth, inNumLines, inSelectedItem), parent(d), show_level_numbers(in_show_level_numbers), offset{1} {}
 
 void
 w_levels::item_selected(void)
@@ -2266,7 +2258,7 @@ w_levels::draw_item(vector<entry_point>::const_iterator i, SDL_Surface *s, int16
 	char str[256];
 
     if(show_level_numbers)
-    	sprintf(str, "%d - %s", i->level_number + 1, i->level_name);
+    	sprintf(str, "%d - %s", i->level_number + offset, i->level_name);
     else
         sprintf(str, "%s", i->level_name);
 

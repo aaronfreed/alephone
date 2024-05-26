@@ -55,8 +55,6 @@ namespace io = boost::iostreams;
 #include "item_definitions.h"
 #include "projectile_definitions.h"
 
-#ifdef HAVE_LUA
-
 const float AngleConvert = 360/float(FULL_CIRCLE);
 
 char Lua_Action_Flags_Name[] = "action_flags";
@@ -1520,6 +1518,8 @@ int Lua_Player_Find_Target(lua_State *L)
 		definition->flags |= _penetrates_media | _penetrates_media_boundary;
 	}
 
+	auto final_destination = origin.xy();
+
 	// preflight a projectile, 1 WU at a time (because of projectile speed bug)
 	uint16 flags = translate_projectile(0, &origin, old_polygon, &destination, &new_polygon, player->monster_index, &obstruction_index, &line_index, true, NONE);
 
@@ -1529,6 +1529,11 @@ int Lua_Player_Find_Target(lua_State *L)
 		old_polygon = new_polygon;
 
 		translate_point3d(&destination, WORLD_ONE, player->facing, player->elevation);
+		if (destination.xy() == final_destination)
+		{
+			return 0;
+		}
+		
 		flags = translate_projectile(0, &origin, old_polygon, &destination, &new_polygon, player->monster_index, &obstruction_index, &line_index, true, NONE);
 	}
 
@@ -1625,7 +1630,7 @@ int Lua_Player_Play_Sound(lua_State *L)
 	if (local_player_index != player_index)
 		return 0;
 
-	SoundManager::instance()->PlaySound(sound_index, NULL, NONE, true, _fixed(FIXED_ONE * pitch));
+	SoundManager::instance()->PlaySound(sound_index, NULL, NONE, _fixed(FIXED_ONE * pitch));
 	return 0;
 }
 
@@ -2982,5 +2987,3 @@ static void Lua_Player_load_compatibility(lua_State *L)
 	luaL_loadbuffer(L, compatibility_script, strlen(compatibility_script), "player_compatibility");
 	lua_pcall(L, 0, 0, 0);
 }
-
-#endif

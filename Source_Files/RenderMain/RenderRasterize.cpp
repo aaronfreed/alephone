@@ -209,6 +209,10 @@ void RenderRasterizerClass::render_node(
 					surface.length= line->length;
 					store_endpoint(get_endpoint_data(polygon->endpoint_indexes[i]), surface.p0);
 					store_endpoint(get_endpoint_data(polygon->endpoint_indexes[WRAP_HIGH(i, polygon->vertex_count-1)]), surface.p1);
+					
+					if (surface.p0 == surface.p1)
+						continue; // skip sides that are degenerate, as produced by store_endpoint()
+					
 					surface.ambient_delta= side->ambient_delta;
 					
 					// LP change: indicate in all cases whether the void is on the other side;
@@ -529,9 +533,9 @@ void RenderRasterizerClass::render_node_side(
 				{
 					scale *= 4;
 				}
-				
-				world_distance x0= surface->texture_definition->x0 % scale;
-				world_distance y0= surface->texture_definition->y0 % scale;
+
+				world_distance x0 = surface->texture_definition->x0 & (scale - 1);
+				world_distance y0 = surface->texture_definition->y0 & (scale - 1);
 
 				/* calculate texture origin and direction */	
 				world_distance divisor = surface->length;
