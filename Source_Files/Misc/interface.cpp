@@ -1127,7 +1127,8 @@ bool idle_game_state(uint32 time)
 				case _display_intro_screens_for_demo:
 				case _display_main_menu:
 					/* Start the demo.. */
-					if(!begin_game(_demo, false))
+					if(!environment_preferences->auto_play_demos ||
+					   !begin_game(_demo, false))
 					{
 						/* This means that there was not a valid demo to play */
 						game_state.phase= TICKS_UNTIL_DEMO_STARTS;
@@ -1242,6 +1243,30 @@ bool idle_game_state(uint32 time)
 		/* Update the fade ins, etc.. */
 		update_interface_fades();
 		return false;
+	}
+}
+
+void set_game_focus_lost()
+{
+	switch (game_state.state)
+	{
+		case _display_main_menu:
+		case _display_intro_screens_for_demo:
+			game_state.phase = INDEFINATE_TIME_DELAY;
+			break;
+	}
+}
+
+void set_game_focus_gained()
+{
+	switch (game_state.state)
+	{
+		case _display_main_menu:
+			game_state.phase = TICKS_UNTIL_DEMO_STARTS;
+			break;
+		case _display_intro_screens_for_demo:
+			game_state.phase = DEMO_INTRO_SCREEN_DURATION;
+			break;
 	}
 }
 
@@ -2140,10 +2165,7 @@ static bool begin_game(
 					break;
 					
 				case _demo:
-					// setup_replay_from_random_resource always returns false,
-					// so don't bother to checksum the map
-					success= false;
-					// success= setup_replay_from_random_resource(get_current_map_checksum());
+					success = setup_replay_from_random_resource();
 					break;
 
 				case _replay_from_file:
